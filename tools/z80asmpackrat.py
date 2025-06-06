@@ -413,6 +413,9 @@ class Z80AsmParser:
                     opcode = Opcode[mnemonic.upper()]
                     instr = Instruction(opcode, args, op_bytes=op_bytes, length=byte_len)
                     self.instructions.append(instr)
+                    if not self.eol():
+                        # Expect that there is nothing left on the line
+                        self.error("unexpected text")
                     parse = True
                     break
                 self.reset(pos)
@@ -799,7 +802,7 @@ class Z80AsmParser:
         stream = StringIO()
         print(f"error: {message.format(*args)}", file=stream)
         print(f"at: {self.current_filename}:{self.lineno}:{col}", file=stream)
-        print(self.original_line, file=stream)
+        print(self.current_line, file=stream)
         print(f"{' ' * col}^", file=stream)
         raise Z80Error(stream.getvalue())
 
