@@ -1,0 +1,16 @@
+BasedOnStyle: LLVM
+
+Language: Cpp
+
+DerivePointerAlignment: false
+PointerAlignment: Left
+QualifierAlignment: Leave
+
+AllowAllParametersOfDeclarationOnNextLine: true
+
+BreakBeforeBraces: Attach
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeColon
+BreakInheritanceList: AfterComma
+
+ColumnLimit: 120
