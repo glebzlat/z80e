@@ -253,12 +253,12 @@ class Z80AsmParser:
                 (SP, IY): (0xfd, 0xf9),
             },
             _("PUSH"): {
-                (REP,): D(1, lambda rr: (0xc5 | (rr << 4))),
+                (REP,): D(1, lambda rr: (0xc5 | (rr << 4),)),
                 (IX,): (0xdd, 0xe5),
                 (IY,): (0xfd, 0xe5),
             },
             _("POP"): {
-                (REP,): D(1, lambda rr: (0xc1 | (rr << 4))),
+                (REP,): D(1, lambda rr: (0xc1 | (rr << 4),)),
                 (IX,): (0xdd, 0xe1),
                 (IY,): (0xfd, 0xe1),
             },
@@ -1034,6 +1034,89 @@ class Z80AsmPrinter:
         print(*args, sep=sep, end=end, file=self.file)
 
 
+class Z80AsmCompiler:
+
+    REGISTERS = {
+        "a": 0b111,
+        "b": 0b000,
+        "c": 0b001,
+        "d": 0b010,
+        "e": 0b011,
+        "h": 0b100,
+        "l": 0b101
+    }
+
+    REGPAIRS = {
+        "bc": 0b00,
+        "de": 0b01,
+        "hl": 0b10,
+        "sp": 0b11
+    }
+
+    def __init__(self, program: list[Statement], file):
+        self.program = program
+        self.file = file
+
+        self.compiled: dict[int, tuple[int, ...]] = {}
+
+    def compile_program(self):
+        for inst in self.program:
+            self.compile_instruction(inst)
+
+    def compile_instruction(self, inst: Statement):
+        """Compile instruction objects into sequences of bytes"""
+        if not isinstance(inst, Instruction):
+            return
+        inst: Instruction
+        if isinstance(inst.op_bytes, tuple):
+            op_bytes = inst.op_bytes
+        else:
+            args = []
+            for op in inst.operands:
+                if op.kind == OperandKind.Int16:
+                    args.append(self.i16top(op.value))
+                elif op.kind == OperandKind.Label:
+                    args.append(self.i16top(op.value))
+                elif op.kind == OperandKind.Reg:
+                    args.append(self.regtoi(op.value))
+                elif op.kind == OperandKind.RegPair:
+                    args.append(self.regptoi(op.value))
+                elif op.kind == OperandKind.Addr:
+                    if isinstance(op.value, int):
+                        args.append(self.i16top(op.value))
+                    else:
+                        args.append(None)
+                elif op.kind == OperandKind.Flag:
+                    args.append(None)
+                else:
+                    assert isinstance(op.value, int)
+                    args.append(op.value)
+            op_bytes = inst.op_bytes(*args)
+            assert isinstance(op_bytes, tuple)
+        self.compiled[inst.addr] = op_bytes
+
+    def emit_pretty(self, with_addr: bool = True, file=None):
+        """Pretty print program byte representation"""
+        file = file if file is not None else self.file
+        for addr, inst in self.compiled.items():
+            if with_addr:
+                print(f"{addr:04X} ", end="", file=file)
+            bytes_str = " ".join(f"{i & 0xff:02X}" for i in inst)
+            print(bytes_str, file=file)
+
+    def i16top(self, i: int) -> tuple[int, int]:
+        """Convert 16-bit integer to pair (lsb, msb)"""
+        return (i & 0xff, (i >> 8) & 0xff)
+
+    def regtoi(self, reg: str) -> int:
+        """Convert register name to its integer representation"""
+        return self.REGISTERS[reg]
+
+    def regptoi(self, regp: str) -> int:
+        """Convert register pair to its integer representation"""
+        return self.REGPAIRS[regp]
+
+
 if __name__ == "__main__":
     from argparse import ArgumentParser
 
@@ -1045,10 +1128,14 @@ if __name__ == "__main__":
     asm = Z80AsmParser()
     ltr = Z80AsmLayouter(asm.instructions)
     printer = Z80AsmPrinter(file=sys.stdout, with_addr=True)
+    compiler = Z80AsmCompiler(file=sys.stdout, program=asm.instructions)
     for i in ns.inputs:
         try:
             asm.parse_file(i)
             ltr.layout_program()
             printer.print_program(asm.instructions)
+            print()
+            compiler.compile_program()
+            compiler.emit_pretty()
         except Z80Error as e:
             print(e)
