@@ -1103,6 +1103,12 @@ class Z80AsmCompiler:
             bytes_str = " ".join(f"{i & 0xff:02X}" for i in inst)
             print(bytes_str, file=file)
 
+    def emit_bytes(self, file: BinaryIO):
+        """Emit compiled program as bytes"""
+        for inst in self.compiled.values():
+            byte_seq = self.tuptobytes(inst)
+            file.write(byte_seq)
+
     def i16top(self, i: int) -> tuple[int, int]:
         """Convert 16-bit integer to pair (lsb, msb)"""
         return (i & 0xff, (i >> 8) & 0xff)
@@ -1114,6 +1120,9 @@ class Z80AsmCompiler:
     def regptoi(self, regp: str) -> int:
         """Convert register pair to its integer representation"""
         return self.REGPAIRS[regp]
+
+    def tuptobytes(self, tup: tuple[int, ...]) -> bytes:
+        return b"".join(i.to_bytes() for i in tup)
 
 
 if __name__ == "__main__":
@@ -1127,7 +1136,7 @@ if __name__ == "__main__":
     asm = Z80AsmParser()
     ltr = Z80AsmLayouter(asm.instructions)
     printer = Z80AsmPrinter(file=sys.stdout, with_addr=True)
-    compiler = Z80AsmCompiler(file=sys.stdout, program=asm.instructions)
+    compiler = Z80AsmCompiler(program=asm.instructions)
     for i in ns.inputs:
         try:
             asm.parse_file(i)
@@ -1135,6 +1144,6 @@ if __name__ == "__main__":
             printer.print_program(asm.instructions)
             print()
             compiler.compile_program()
-            compiler.pretty_print()
+            compiler.pretty_print(file=sys.stdout)
         except Z80Error as e:
             print(e)
