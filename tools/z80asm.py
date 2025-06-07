@@ -1093,7 +1093,7 @@ class Z80AsmCompiler:
             op_bytes = inst.op_bytes(*args)
             assert isinstance(op_bytes, tuple)
             assert all(b.bit_length() <= 8 for b in op_bytes)
-        self.compiled[inst.addr] = op_bytes
+        self.compiled[inst.addr] = tuple((i & 0xff) for i in op_bytes)
 
     def pretty_print(self, file: TextIO, with_addr: bool = True):
         """Pretty print program byte representation"""
