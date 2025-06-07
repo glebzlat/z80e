@@ -5,7 +5,7 @@ import re
 import sys
 
 from functools import wraps
-from typing import Optional, Callable, Any, TextIO
+from typing import Optional, Callable, Any, TextIO, BinaryIO
 from io import StringIO
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -1053,9 +1053,8 @@ class Z80AsmCompiler:
         "sp": 0b11
     }
 
-    def __init__(self, program: list[Statement], file):
+    def __init__(self, program: list[Statement]):
         self.program = program
-        self.file = file
 
         self.compiled: dict[int, tuple[int, ...]] = {}
 
@@ -1096,9 +1095,8 @@ class Z80AsmCompiler:
             assert all(b.bit_length() <= 8 for b in op_bytes)
         self.compiled[inst.addr] = op_bytes
 
-    def pretty_print(self, with_addr: bool = True, file: Optional[TextIO] = None):
+    def pretty_print(self, file: TextIO, with_addr: bool = True):
         """Pretty print program byte representation"""
-        file = file if file is not None else self.file
         for addr, inst in self.compiled.items():
             if with_addr:
                 print(f"{addr:04X} ", end="", file=file)
