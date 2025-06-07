@@ -1108,6 +1108,7 @@ class Z80AsmCompiler:
         for inst in self.compiled.values():
             byte_seq = self.tuptobytes(inst)
             file.write(byte_seq)
+        file.flush()
 
     def i16top(self, i: int) -> tuple[int, int]:
         """Convert 16-bit integer to pair (lsb, msb)"""
