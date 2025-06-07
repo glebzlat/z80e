@@ -1095,7 +1095,7 @@ class Z80AsmCompiler:
             assert isinstance(op_bytes, tuple)
         self.compiled[inst.addr] = op_bytes
 
-    def emit_pretty(self, with_addr: bool = True, file=None):
+    def pretty_print(self, with_addr: bool = True, file: Optional[TextIO] = None):
         """Pretty print program byte representation"""
         file = file if file is not None else self.file
         for addr, inst in self.compiled.items():
@@ -1136,6 +1136,6 @@ if __name__ == "__main__":
             printer.print_program(asm.instructions)
             print()
             compiler.compile_program()
-            compiler.emit_pretty()
+            compiler.pretty_print()
         except Z80Error as e:
             print(e)
