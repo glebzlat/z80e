@@ -78,6 +78,8 @@ class Opcode(Enum):
     SET = auto()
     RES = auto()
     JP = auto()
+    JR = auto()
+    DJNZ = auto()
 
 
 class DirectiveKind(Enum):
@@ -227,6 +229,10 @@ class Z80AsmParser:
         BIT = self.parse_bit_pos
 
         LBL = self.parse_label_ref
+        CFF = self.parse_cond_flag
+
+        CF = self.parse_carry_flag
+        NC = self.parse_unset_carry_flag
         ZF = self.parse_zero_flag
         NZ = self.parse_unset_zero_flag
 
@@ -531,8 +537,23 @@ class Z80AsmParser:
                 (BIT, IYD): D(4, lambda b, d: (0xfd, 0xcb, d, 0x86 | (b << 3))),
             },
             _("JP"): {
-                (ZF, I16): D(3, lambda _, n: (0xca, n[0], n[1])),
-                (ZF, LBL): D(3, lambda _, n: (0xca, n[0], n[1])),
+                (I16,): D(3, lambda n: (0xc3, n[0], n[1])),
+                (CFF, I16): D(3, lambda f, n: (0xc2 | (f << 3), n[0], n[1])),
+                (CFF, LBL): D(3, lambda f, n: (0xc2 | (f << 3), n[0], n[1])),
+
+                (HL,): (0xe9,),
+                (IX,): (0xdd, 0xe9),
+                (IY,): (0xfd, 0xe9),
+            },
+            _("JR"): {
+                (I8,): D(2, lambda n: (0x18, n - 2)),
+                (CF, I8): D(2, lambda _, n: (0x38, n - 2)),
+                (NC, I8): D(2, lambda _, n: (0x30, n - 2)),
+                (ZF, I8): D(2, lambda _, n: (0x28, n - 2)),
+                (NZ, I8): D(2, lambda _, n: (0x20, n - 2)),
+            },
+            _("DJNZ"): {
+                (I8,): D(2, lambda n: (0x10, n - 2)),
             }
         }
 
