@@ -198,6 +198,7 @@ class Z80AsmParser:
         IR = lambda: self.parse_register_name("i")
         RR = lambda: self.parse_register_name("r")
         REP = self.parse_regpair
+        BIT = self.parse_bit_pos
 
         LBL = self.parse_label_ref
         ZF = self.parse_zero_flag
@@ -209,6 +210,7 @@ class Z80AsmParser:
         # ADD        (<int>)      int
         # REG        <reg-name>   int
         # REGP       <reg-pair>   int
+        # BIT        [0-7]        int
         # I8         <int>        int
         # I16        <int>        (lsb, msb)
         # LBL        <id>         (lsb, msb)
@@ -483,6 +485,24 @@ class Z80AsmParser:
             },
             _("RRD"): {
                 (): (0xed, 0x67),
+            },
+            _("BIT"): {
+                (BIT, REG): D(2, lambda b, r: (0xcb, 0x40 | (b << 3) | r)),
+                (BIT, AHL): D(2, lambda b, _: (0xcb, 0x46 | (b << 3))),
+                (BIT, IXD): D(4, lambda b, d: (0xdd, 0xcb, d, 0x46 | (b << 3))),
+                (BIT, IYD): D(4, lambda b, d: (0xfd, 0xcb, d, 0x46 | (b << 3))),
+            },
+            _("SET"): {
+                (BIT, REG): D(2, lambda b, r: (0xcb, 0xc0 | (b << 3) | r)),
+                (BIT, AHL): D(2, lambda b, _: (0xcb, 0xc6 | (b << 3))),
+                (BIT, IXD): D(4, lambda b, d: (0xdd, 0xcb, d, 0xc6 | (b << 3))),
+                (BIT, IYD): D(4, lambda b, d: (0xfd, 0xcb, d, 0xc6 | (b << 3))),
+            },
+            _("RES"): {
+                (BIT, REG): D(2, lambda b, r: (0xcb, 0x80 | (b << 3) | r)),
+                (BIT, AHL): D(2, lambda b, _: (0xcb, 0x86 | (b << 3))),
+                (BIT, IXD): D(4, lambda b, d: (0xdd, 0xcb, d, 0x86 | (b << 3))),
+                (BIT, IYD): D(4, lambda b, d: (0xfd, 0xcb, d, 0x86 | (b << 3))),
             },
             _("JP"): {
                 (ZF, I16): D(3, lambda _, n: (0xca, n[0], n[1])),
@@ -878,6 +898,17 @@ class Z80AsmParser:
         pos = self.mark()
         if i := self.expect_integer(16):
             return self.parseinfo(Operand(OperandKind.Int16, i), pos)
+        self.reset(pos)
+        return None
+
+    @memoize
+    def parse_bit_pos(self) -> Optional[Operand]:
+        """Parse bit position integer (from 0 to 7 inclusively)"""
+        pos = self.mark()
+        if i := self.expect_integer(8):
+            if i < 0 or i > 7:
+                self.error("bit position must be in range [0, 7], got {}", i)
+            return self.parseinfo(Operand(OperandKind.Int8, i), pos)
         self.reset(pos)
         return None
 
