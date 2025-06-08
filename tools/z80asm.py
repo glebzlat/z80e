@@ -175,6 +175,7 @@ class Z80AsmParser:
 
         # Shortcuts
         _ = lambda name: Opcode[name].name
+        S = lambda s: self.expect_str(s)
         D = self.InstructionData
 
         REG = self.parse_register
@@ -202,15 +203,20 @@ class Z80AsmParser:
         ZF = self.parse_zero_flag
         NZ = self.parse_unset_zero_flag
 
-        # Convertions:
-        #   ix+d    -> int
-        #   iy+d    -> int
-        #   add     -> (lsb, msb)
-        #   reg     -> int (so with individual registers)
-        #   regpair -> int
-        #   i8      -> int
-        #   i16     -> (lsb, msb)
-        #   label   -> (lsb, msb)
+        # Parselet   Expression   Convertion
+        # IXD        (ix+<int>)   int
+        # IYD        (iy+<int>)   int
+        # ADD        (<int>)      int
+        # REG        <reg-name>   int
+        # REGP       <reg-pair>   int
+        # I8         <int>        int
+        # I16        <int>        (lsb, msb)
+        # LBL        <id>         (lsb, msb)
+        # CONST      <id>         int
+        #
+        # Parselets not mentioned in the above table are not converted and
+        # a _ placeholder should be used.
+
         self.mnemonics: dict[Opcode, dict[tuple[Callable, ...], self.InstructionData | tuple[int, ...]]] = {
             _("LD"): {
                 # 8-bit load group
@@ -302,6 +308,11 @@ class Z80AsmParser:
                 (AR, AHL): (0x86,),
                 (AR, IXD): D(3, lambda _, d: (0xdd, 0x86, d)),
                 (AR, IYD): D(3, lambda _, d: (0xfd, 0x86, d)),
+
+                # 16-bit
+                (AHL, REP): D(1, lambda rp: (0x09 | (rp << 4),)),
+                (IX, REP): D(2, lambda _, rp: (0xdd, 0x09 | (rp << 4))),
+                (IY, REP): D(2, lambda _, rp: (0xfd, 0x09 | (rp << 4))),
             },
             _("ADC"): {
                 (AR, REG): D(1, lambda _, r: (0x88 | r,)),
@@ -309,6 +320,9 @@ class Z80AsmParser:
                 (AR, AHL): (0x8e,),
                 (AR, IXD): D(3, lambda _, d: (0xdd, 0x8e, d)),
                 (AR, IYD): D(3, lambda _, d: (0xfd, 0x8e, d)),
+
+                # 16-bit
+                (AHL, REP): D(2, lambda rp: (0xed, 0x4a | (rp << 4))),
             },
             _("SUB"): {
                 (REG,): D(1, lambda r: (0x90 | r,)),
@@ -316,6 +330,159 @@ class Z80AsmParser:
                 (AHL,): (0x96,),
                 (IXD,): D(3, lambda d: (0xdd, 0x96, d)),
                 (IYD,): D(3, lambda d: (0xfd, 0x96, d)),
+            },
+            _("SBC"): {
+                (AR, REG): D(1, lambda _, r: (0x98 | r,)),
+                (AR, I8): D(2, lambda _, n: (0xde, n)),
+                (AR, AHL): (0x9e,),
+                (AR, IXD): D(3, lambda _, d: (0xdd, 0x9e, d)),
+                (AR, IYD): D(3, lambda _, d: (0xfd, 0x9e, d)),
+
+                # 16-bit
+                (AHL, REP): D(2, lambda rp: (0xed, 0x42 | (rp << 4))),
+            },
+            _("AND"): {
+                (REG,): D(1, lambda r: (0xa0 | r,)),
+                (I8,): D(2, lambda n: (0xe6, n)),
+                (AHL,): (0xa6,),
+                (IXD,): D(3, lambda d: (0xdd, 0xa6, d)),
+                (IYD,): D(3, lambda d: (0xfd, 0xa6, d)),
+            },
+            _("OR"): {
+                (REG,): D(1, lambda r: (0xc0 | r,)),
+                (I8,): D(2, lambda n: (0xf6, n)),
+                (AHL,): (0xb6,),
+                (IXD,): D(3, lambda d: (0xdd, 0xb6, d)),
+                (IYD,): D(3, lambda d: (0xfd, 0xb6, d)),
+            },
+            _("XOR"): {
+                (REG,): D(1, lambda r: (0xb8 | r,)),
+                (I8,): D(2, lambda n: (0xee, n)),
+                (AHL,): (0xae,),
+                (IXD,): D(3, lambda d: (0xdd, 0xae, d)),
+                (IYD,): D(3, lambda d: (0xfd, 0xae, d)),
+            },
+            _("CP"): {
+                (REG,): D(1, lambda r: (0xc8 | r,)),
+                (I8,): D(2, lambda n: (0xfe, n)),
+                (AHL,): (0xbe,),
+                (IXD,): D(3, lambda d: (0xdd, 0xbe, d)),
+                (IYD,): D(3, lambda d: (0xfd, 0xbe, d)),
+            },
+            _("INC"): {
+                (REG,): D(1, lambda r: (0x04 | r,)),
+                (AHL,): (0x34,),
+                (IXD,): D(3, lambda d: (0xdd, 0x34, d)),
+                (IYD,): D(3, lambda d: (0xfd, 0x34, d)),
+
+                # 16-bit
+                (REP,): D(1, lambda rp: (0x03 | (rp << 4),)),
+                (IX,): (0xdd, 0x23),
+                (IY,): (0xfd, 0x23),
+            },
+            _("DEC"): {
+                (REG,): D(1, lambda r: (0x05 | r,)),
+                (AHL,): (0x35,),
+                (IXD,): D(3, lambda d: (0xdd, 0x35, d)),
+                (IYD,): D(3, lambda d: (0xfd, 0x35, d)),
+
+                # 16-bit
+                (REP,): D(1, lambda rp: (0x0b | (rp << 4),)),
+                (IX,): (0xdd, 0x2b),
+                (IY,): (0xfd, 0x2b),
+            },
+            _("DAA"): {
+                (): (0x27,),
+            },
+            _("CPL"): {
+                (): (0x2f,),
+            },
+            _("NEG"): {
+                (): (0xed, 0x44),
+            },
+            _("CCF"): {
+                (): (0x3f,),
+            },
+            _("SCF"): {
+                (): (0x37,),
+            },
+            _("NOP"): {
+                (): (0x00,),
+            },
+            _("HALT"): {
+                (): (0x76,),
+            },
+            _("DI"): {
+                (): (0xf3,),
+            },
+            _("EI"): {
+                (): (0xfb,),
+            },
+            _("IM"): {
+                (S("0"),): (0xed, 0x46),
+                (S("1"),): (0xed, 0x56),
+                (S("2"),): (0xed, 0x5e),
+            },
+            _("RLCA"): {
+                (): (0x07,),
+            },
+            _("RLA"): {
+                (): (0x17,),
+            },
+            _("RRCA"): {
+                (): (0x0f,),
+            },
+            _("RRA"): {
+                (): (0x1f,),
+            },
+            _("RLC"): {
+                (REG,): D(2, lambda r: (0xcb, 0x00 | r)),
+                (AHL,): (0xcb, 0x06),
+                (IXD,): D(4, lambda d: (0xdd, 0xcb, d, 0x06)),
+                (IYD,): D(4, lambda d: (0xfd, 0xcb, d, 0x06)),
+            },
+            _("RL"): {
+                (REG,): D(2, lambda r: (0xcb, 0x10 | r)),
+                (AHL,): (0xcb, 0x16),
+                (IXD,): D(4, lambda d: (0xdd, 0xcb, d, 0x16)),
+                (IYD,): D(4, lambda d: (0xfd, 0xcb, d, 0x16)),
+            },
+            _("RRC"): {
+                (REG,): D(2, lambda r: (0xcb, 0x08 | r)),
+                (AHL,): (0xcb, 0x0e),
+                (IXD,): D(4, lambda d: (0xdd, 0xcb, d, 0x0e)),
+                (IYD,): D(4, lambda d: (0xfd, 0xcb, d, 0x0e)),
+            },
+            _("RR"): {
+                # XXX: RR reg and RRC reg opcodes are the same??
+                (REG,): D(2, lambda r: (0xcb, 0x08 | r)),
+                (AHL,): (0xcb, 0x1e),
+                (IXD,): D(4, lambda d: (0xdd, 0xcb, d, 0x1e)),
+                (IYD,): D(4, lambda d: (0xfd, 0xcb, d, 0x1e)),
+            },
+            _("SLA"): {
+                (REG,): D(2, lambda r: (0xcb, 0x20 | r)),
+                (AHL,): (0xcb, 0x26),
+                (IXD,): D(4, lambda d: (0xdd, 0xcb, d, 0x26)),
+                (IYD,): D(4, lambda d: (0xfd, 0xcb, d, 0x26)),
+            },
+            _("SRA"): {
+                (REG,): D(2, lambda r: (0xcb, 0x28 | r)),
+                (AHL,): (0xcb, 0x2e),
+                (IXD,): D(4, lambda d: (0xdd, 0xcb, d, 0x2e)),
+                (IYD,): D(4, lambda d: (0xfd, 0xcb, d, 0x2e)),
+            },
+            _("SRL"): {
+                (REG,): D(2, lambda r: (0xcb, 0x38 | r)),
+                (AHL,): (0xcb, 0x3e),
+                (IXD,): D(4, lambda d: (0xdd, 0xcb, d, 0x3e)),
+                (IYD,): D(4, lambda d: (0xfd, 0xcb, d, 0x3e)),
+            },
+            _("RLD"): {
+                (): (0xed, 0x6f),
+            },
+            _("RRD"): {
+                (): (0xed, 0x67),
             },
             _("JP"): {
                 (ZF, I16): D(3, lambda _, n: (0xca, n[0], n[1])),
