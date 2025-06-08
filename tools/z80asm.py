@@ -86,6 +86,16 @@ class Opcode(Enum):
     RETI = auto()
     RETN = auto()
     RST = auto()
+    IN = auto()
+    INI = auto()
+    INIR = auto()
+    IND = auto()
+    INDR = auto()
+    OUT = auto()
+    OUTI = auto()
+    OTIR = auto()
+    OUTD = auto()
+    OTDR = auto()
 
 
 class DirectiveKind(Enum):
@@ -243,6 +253,9 @@ class Z80AsmParser:
         NZ = self.parse_unset_zero_flag
 
         PML = self.parse_page0_mem_loc
+
+        IOA = lambda: self.parse_addr_combine(self.parse_i8_op)
+        IOAC = lambda: self.parse_addr_combine(self.parse_register_name("c"))
 
         # Parselet   Expression   Convertion
         # IXD        (ix+<int>)   int
@@ -579,6 +592,38 @@ class Z80AsmParser:
             },
             _("RST"): {
                 (PML,): D(1, lambda n: (0xc7 | (n << 3),))
+            },
+            _("IN"): {
+                (AR, IOA): D(2, lambda _, n: (0xdb, n)),
+                (REG, IOAC): D(2, lambda r, _: (0xed, 0x40 | (r << 3)))
+            },
+            _("INI"): {
+                (): (0xed, 0xa2),
+            },
+            _("INIR"): {
+                (): (0xed, 0xb2),
+            },
+            _("IND"): {
+                (): (0xed, 0xaa),
+            },
+            _("INDR"): {
+                (): (0xed, 0xba),
+            },
+            _("OUT"): {
+                (IOA, AR): D(2, lambda n, _: (0xd3, n)),
+                (IOAC, AR): D(2, lambda _, r: (0xed, 0x41 | (r << 3)))
+            },
+            _("OUTI"): {
+                (): (0xed, 0xa3),
+            },
+            _("OTIR"): {
+                (): (0xed, 0xb3),
+            },
+            _("OUTD"): {
+                (): (0xed, 0xab),
+            },
+            _("OTDR"): {
+                (): (0xed, 0xbb)
             }
         }
 
