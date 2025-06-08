@@ -25,6 +25,7 @@ class OperandKind(Enum):
     Const = auto()
     Flag = auto()
     Label = auto()
+    MemLoc = auto()
 
 
 class Opcode(Enum):
@@ -235,6 +236,8 @@ class Z80AsmParser:
         NC = self.parse_unset_carry_flag
         ZF = self.parse_zero_flag
         NZ = self.parse_unset_zero_flag
+
+        PML = self.parse_page0_mem_loc
 
         # Parselet   Expression   Convertion
         # IXD        (ix+<int>)   int
@@ -554,6 +557,23 @@ class Z80AsmParser:
             },
             _("DJNZ"): {
                 (I8,): D(2, lambda n: (0x10, n - 2)),
+            },
+            _("CALL"): {
+                (I16,): D(3, lambda n: (0xcd, n[0], n[1])),
+                (CFF, I16): D(3, lambda f, n: (0xc4 | (f << 3), n[0], n[1]))
+            },
+            _("RET"): {
+                (): (0xc9,),
+                (CFF,): D(1, lambda f: (0xc0 | (f << 3))),
+            },
+            _("RETI"): {
+                (): (0xed, 0x4d),
+            },
+            _("RETN"): {
+                (): (0xed, 0x45),
+            },
+            _("RST"): {
+                (PML,): D(1, lambda n: (0xc7 | (n << 3),))
             }
         }
 
@@ -980,6 +1000,15 @@ class Z80AsmParser:
         return None
 
     @memoize
+    def parse_page0_mem_loc(self) -> Optional[Operand]:
+        """Parse page0 memory location integer"""
+        pos = self.mark()
+        if i := self.expect_integer(8):
+            return self.parseinfo(Operand(OperandKind.MemLoc, i), pos)
+        self.reset(pos)
+        return None
+
+    @memoize
     def expect_integer(self, bits: int = 8) -> Optional[int]:
         """Parses n-bit integer in decimal, hexadecimal, octal, or binary format"""
         pos = self.mark()
@@ -1329,14 +1358,28 @@ class Z80AsmCompiler:
         "m": 0b111
     }
 
+    MEMLOCS = {
+        0x00: 0b000,
+        0x08: 0b001,
+        0x10: 0b010,
+        0x18: 0b011,
+        0x20: 0b100,
+        0x28: 0b101,
+        0x30: 0b110,
+        0x38: 0b111
+    }
+
     def __init__(self, program: list[Statement]):
         self.program = program
 
         self.compiled: dict[int, tuple[int, ...]] = {}
+        self.errors: list[Z80Error] = []
 
     def compile_program(self):
         for inst in self.program:
             self.compile_instruction(inst)
+        if self.errors:
+            raise Z80Error(*self.errors)
 
     def compile_instruction(self, inst: Statement):
         """Compile instruction objects into sequences of bytes"""
@@ -1363,6 +1406,11 @@ class Z80AsmCompiler:
                         args.append(None)
                 elif op.kind == OperandKind.Flag:
                     args.append(self.FLAGS[op.value])
+                elif op.kind == OperandKind.MemLoc:
+                    if (val := self.MEMLOCS.get(op.value)) is not None:
+                        args.append(val)
+                    else:
+                        self.error(op, "invalid Page 0 Memory Location")
                 else:
                     assert isinstance(op.value, int)
                     args.append(op.value)
@@ -1400,6 +1448,16 @@ class Z80AsmCompiler:
 
     def tuptobytes(self, tup: tuple[int, ...]) -> bytes:
         return b"".join(i.to_bytes() for i in tup)
+
+    def error(self, stmt: Optional[Statement], message: str, *args):
+        stream = StringIO()
+        print(f"error: {message.format(*args)}", file=stream)
+        if stmt is None:
+            return
+        print(f"{stmt.filename}:{stmt.lineno}:{stmt.column}", file=stream)
+        print(stmt.line, file=stream)
+        print(f"{' ' * stmt.column}^", file=stream)
+        self.errors.append(Z80Error(stream.getvalue()))
 
 
 if __name__ == "__main__":
