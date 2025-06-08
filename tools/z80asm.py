@@ -846,6 +846,26 @@ class Z80AsmParser:
         return None
 
     @memoize
+    def parse_cond_flag(self) -> Optional[Operand]:
+        if op := self.parse_unset_zero_flag():
+            return op
+        if op := self.parse_zero_flag():
+            return op
+        if op := self.parse_unset_carry_flag():
+            return op
+        if op := self.parse_carry_flag():
+            return op
+        if op := self.parse_unset_pv_flag():
+            return op
+        if op := self.parse_pv_flag():
+            return op
+        if op := self.parse_unset_sign_flag():
+            return op
+        if op := self.parse_sign_flag():
+            return op
+        return None
+
+    @memoize
     def parse_zero_flag(self) -> Optional[Operand]:
         return self.parse_flag("z")
 
@@ -1277,6 +1297,17 @@ class Z80AsmCompiler:
         "sp": 0b11
     }
 
+    FLAGS = {
+        "nz": 0b000,
+        "z": 0b001,
+        "nc": 0b010,
+        "c": 0b011,
+        "po": 0b100,
+        "pe": 0b101,
+        "p": 0b110,
+        "m": 0b111
+    }
+
     def __init__(self, program: list[Statement]):
         self.program = program
 
@@ -1310,7 +1341,7 @@ class Z80AsmCompiler:
                     else:
                         args.append(None)
                 elif op.kind == OperandKind.Flag:
-                    args.append(None)
+                    args.append(self.FLAGS[op.value])
                 else:
                     assert isinstance(op.value, int)
                     args.append(op.value)
