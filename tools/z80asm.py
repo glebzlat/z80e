@@ -219,7 +219,7 @@ class Z80AsmParser:
 
         # Shortcuts
         _ = lambda name: Opcode[name].name
-        S = lambda s: self.expect_str(s)
+        S = lambda s: lambda: self.expect_str(s)
         D = self.InstructionData
 
         REG = self.parse_register
