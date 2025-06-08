@@ -24,7 +24,12 @@ class OperandKind(Enum):
     IYDAddr = auto()
     Const = auto()
     Flag = auto()
-    Label = auto()
+
+    # Label references. Absolute label reference is 16-bit, relative is 8-bit.
+    AbsLabel = auto()
+    RelLabel = auto()
+
+    # Page 0 Memory Location
     MemLoc = auto()
 
 
@@ -244,7 +249,8 @@ class Z80AsmParser:
         REP = self.parse_regpair
         BIT = self.parse_bit_pos
 
-        LBL = self.parse_label_ref
+        LBLA = self.parse_abs_label_ref
+        LBLR = self.parse_rel_label_ref
         CFF = self.parse_cond_flag
 
         CF = self.parse_carry_flag
@@ -560,7 +566,7 @@ class Z80AsmParser:
             _("JP"): {
                 (I16,): D(3, lambda n: (0xc3, n[0], n[1])),
                 (CFF, I16): D(3, lambda f, n: (0xc2 | (f << 3), n[0], n[1])),
-                (CFF, LBL): D(3, lambda f, n: (0xc2 | (f << 3), n[0], n[1])),
+                (CFF, LBLA): D(3, lambda f, n: (0xc2 | (f << 3), n[0], n[1])),
 
                 (HL,): (0xe9,),
                 (IX,): (0xdd, 0xe9),
@@ -572,9 +578,15 @@ class Z80AsmParser:
                 (NC, I8): D(2, lambda _, n: (0x30, n - 2)),
                 (ZF, I8): D(2, lambda _, n: (0x28, n - 2)),
                 (NZ, I8): D(2, lambda _, n: (0x20, n - 2)),
+                (CF, LBLR): D(2, lambda _, n: (0x38, n - 2)),
+                (NC, LBLR): D(2, lambda _, n: (0x30, n - 2)),
+                (ZF, LBLR): D(2, lambda _, n: (0x28, n - 2)),
+                (NZ, LBLR): D(2, lambda _, n: (0x20, n - 2)),
+                (LBLR,): D(2, lambda n: (0x18, n - 2)),
             },
             _("DJNZ"): {
                 (I8,): D(2, lambda n: (0x10, n - 2)),
+                (LBLR,): D(2, lambda n: (0x10, n - 2)),
             },
             _("CALL"): {
                 (I16,): D(3, lambda n: (0xcd, n[0], n[1])),
@@ -653,6 +665,7 @@ class Z80AsmParser:
         self.errors = []
 
     def parse_file(self, file: str):
+        # breakpoint()
         self.current_filename = file
         with open(file, "r", encoding="UTF-8") as fin:
             self.parse_stream(fin)
@@ -997,10 +1010,18 @@ class Z80AsmParser:
         return None
 
     @memoize
-    def parse_label_ref(self) -> Optional[Operand]:
+    def parse_abs_label_ref(self) -> Optional[Operand]:
         pos = self.mark()
         if name := self.expect_identifier():
-            return self.parseinfo(Operand(OperandKind.Label, name), pos)
+            return self.parseinfo(Operand(OperandKind.AbsLabel, name), pos)
+        self.reset(pos)
+        return None
+
+    @memoize
+    def parse_rel_label_ref(self) -> Optional[Operand]:
+        pos = self.mark()
+        if name := self.expect_identifier():
+            return self.parseinfo(Operand(OperandKind.RelLabel, name), pos)
         self.reset(pos)
         return None
 
@@ -1190,7 +1211,7 @@ class Z80AsmLayouter:
 
         self.addr = 0
         self.labels: dict[int, Label] = {}
-        self.label_refs: list[Operand] = []
+        self.label_refs: list[tuple[Operand, Instruction]] = []
         self.consts: dict[str, int] = {}
         self.const_refs: list[Operand] = []
 
@@ -1216,31 +1237,55 @@ class Z80AsmLayouter:
             self.addr += inst.length
 
             for op in inst.operands:
-                if op.kind == OperandKind.Label:
-                    self.label_refs.append(op)
+                if op.kind in (OperandKind.AbsLabel, OperandKind.RelLabel):
+                    self.label_refs.append((op, inst))
                 elif op.kind == OperandKind.Const:
                     self.const_refs.append(op)
 
     def assign_label_addrs(self):
         for idx, label in self.labels.items():
+            # Try to get an address of the instruction after the label.
+            # If there is no instruction, like a label at the end of the file,
+            # pick up an address of the previous instruction and return the address
+            # of the next byte after it.
             if (addr := self.get_next_addr(idx, self.program)) is not None:
+                label.addr = addr
+            elif (addr := self.get_after_prev_addr(idx, self.program)) is not None:
                 label.addr = addr
 
     def get_next_addr(self, idx: int, program: list) -> Optional[int]:
         """Get the address of the next instruction"""
-        for i in range(idx, len(program)):
+        for i in range(idx + 1, len(program)):
             if isinstance(program[i], Instruction):
                 return program[i].addr
         return None
 
+    def get_after_prev_addr(self, idx: int, program: list) -> Optional[int]:
+        """Get the next address after the previous instruction"""
+        for i in range(idx - 1, 0, -1):
+            if isinstance(program[i], Instruction):
+                return program[i].addr + program[i].length + 1
+        return None
+
     def resolve_labels(self):
         labels = {label.name: label.addr for label in self.labels.values()}
-        for op in self.label_refs:
+        for op, inst in self.label_refs:
             if (addr := labels.get(op.value)) is not None:
+                print(hex(addr))
+                if op.kind == OperandKind.RelLabel:
+                    addr -= inst.addr
+                    if addr < 0:
+                        # CPU already consumed the jump instruction and advanced its
+                        # program counter, so compensate the instruction length.
+                        addr -= inst.length
+                    # Check that the address is within the relative jump range.
+                    if addr > 129 or addr < -126:
+                        self.error("label outside relative jump range")
                 op.name = op.value
                 op.value = addr
-                # Assembly instructions usually may have only one label operand
-                break
+                print("resolve label:", op.name, op.value)
+                # # Assembly instructions usually may have only one label operand
+                # break
             else:
                 self.error("reference to an undefined label {}", op, op.value)
 
@@ -1330,9 +1375,14 @@ class Z80AsmPrinter:
             self.print(f"(ix{obj.value:+})")
         elif obj.kind == OperandKind.IYDAddr:
             self.print(f"(iy{obj.value:+})")
-        elif obj.kind == OperandKind.Label or obj.kind == OperandKind.Const:
+        elif obj.kind == OperandKind.AbsLabel or obj.kind == OperandKind.Const:
             if self.replace_names:
                 self.print(f"0x{obj.value:04X}")
+            else:
+                self.print(obj.name)
+        elif obj.kind == OperandKind.RelLabel:
+            if self.replace_names:
+                self.print(f"{obj.value:+}")
             else:
                 self.print(obj.name)
         else:
@@ -1443,8 +1493,10 @@ class Z80AsmCompiler:
             for op in inst.operands:
                 if op.kind == OperandKind.Int16:
                     args.append(self.i16top(op.value))
-                elif op.kind == OperandKind.Label:
+                elif op.kind == OperandKind.AbsLabel:
                     args.append(self.i16top(op.value))
+                elif op.kind == OperandKind.RelLabel:
+                    args.append(op.value)
                 elif op.kind == OperandKind.Reg:
                     args.append(self.regtoi(op.value))
                 elif op.kind == OperandKind.RegPair:
