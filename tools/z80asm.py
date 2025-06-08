@@ -81,6 +81,11 @@ class Opcode(Enum):
     JP = auto()
     JR = auto()
     DJNZ = auto()
+    CALL = auto()
+    RET = auto()
+    RETI = auto()
+    RETN = auto()
+    RST = auto()
 
 
 class DirectiveKind(Enum):
