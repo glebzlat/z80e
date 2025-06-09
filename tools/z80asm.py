@@ -6,7 +6,7 @@ import sys
 
 from functools import wraps
 from typing import Optional, Callable, Any, TextIO, BinaryIO
-from io import StringIO
+from io import StringIO, BytesIO
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from contextlib import contextmanager
@@ -158,6 +158,7 @@ class Instruction(Statement):
 class Directive(Statement):
     kind: DirectiveKind
     operands: list[Operand] = field(default_factory=list)
+    addr: Optional[int] = None
 
     def __str__(self) -> str:
         operands = ", ".join(str(op) for op in self.operands)
@@ -1263,6 +1264,7 @@ class Z80AsmLayouter:
                 self.addr = inst.operands[0].value
             elif inst.kind == DirectiveKind.equ:
                 self.add_const(inst)
+            inst.addr = self.addr
         elif isinstance(inst, Label):
             self.labels[i] = inst
         elif isinstance(inst, Instruction):
@@ -1277,34 +1279,24 @@ class Z80AsmLayouter:
 
     def assign_label_addrs(self):
         for idx, label in self.labels.items():
-            # Try to get an address of the instruction after the label.
-            # If there is no instruction, like a label at the end of the file,
-            # pick up an address of the previous instruction and return the address
-            # of the next byte after it.
             if (addr := self.get_next_addr(idx, self.program)) is not None:
                 label.addr = addr
-            elif (addr := self.get_after_prev_addr(idx, self.program)) is not None:
-                label.addr = addr
 
-    def get_next_addr(self, idx: int, program: list) -> Optional[int]:
-        """Get the address of the next instruction"""
-        for i in range(idx + 1, len(program)):
-            if isinstance(program[i], Instruction):
-                return program[i].addr
-        return None
-
-    def get_after_prev_addr(self, idx: int, program: list) -> Optional[int]:
+    def get_next_addr(self, idx: int, program: list) -> int:
         """Get the next address after the previous instruction"""
         for i in range(idx - 1, 0, -1):
-            if isinstance(program[i], Instruction):
-                return program[i].addr + program[i].length + 1
-        return None
+            inst = program[i]
+            if isinstance(inst, Instruction):
+                return inst.addr + inst.length + 1
+            if isinstance(inst, Directive):
+                if inst.kind == DirectiveKind.org:
+                    return inst.addr
+        return 0
 
     def resolve_labels(self):
         labels = {label.name: label.addr for label in self.labels.values()}
         for op, inst in self.label_refs:
             if (addr := labels.get(op.value)) is not None:
-                print(hex(addr))
                 if op.kind == OperandKind.RelLabel:
                     addr -= inst.addr
                     if addr < 0:
@@ -1316,9 +1308,6 @@ class Z80AsmLayouter:
                         self.error("label outside relative jump range")
                 op.name = op.value
                 op.value = addr
-                print("resolve label:", op.name, op.value)
-                # # Assembly instructions usually may have only one label operand
-                # break
             else:
                 self.error("reference to an undefined label {}", op, op.value)
 
@@ -1587,9 +1576,14 @@ class Z80AsmCompiler:
 
     def emit_bytes(self, file: BinaryIO):
         """Emit compiled program as bytes"""
-        for inst in self.compiled.values():
+        prev_addr, prev_len = 0, 0
+        for addr, inst in self.compiled.items():
+            if addr - prev_addr > prev_len:
+                # There is a gap between instructions, fill it up with 0x00
+                file.write(bytes(addr - prev_addr - prev_len))
             byte_seq = self.tuptobytes(inst)
             file.write(byte_seq)
+            prev_addr, prev_len = addr, len(inst)
         file.flush()
 
     def i16top(self, i: int) -> tuple[int, int]:
@@ -1638,5 +1632,9 @@ if __name__ == "__main__":
             print()
             compiler.compile_program()
             compiler.pretty_print(file=sys.stdout)
+
+            bstream = BytesIO()
+            compiler.emit_bytes(bstream)
+            print([f"{b:02X}" for b in bstream.getvalue()])
         except Z80Error as e:
             print(e)
