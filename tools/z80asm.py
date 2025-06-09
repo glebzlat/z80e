@@ -32,6 +32,7 @@ class OperandKind(Enum):
 
     # Page 0 Memory Location
     MemLoc = auto()
+    Char = auto()
 
 
 class Opcode(Enum):
@@ -230,6 +231,7 @@ class Z80AsmParser:
 
         REG = self.parse_register
         I8 = self.parse_i8_op
+        CH = self.parse_char
         I16 = self.parse_i16_op
         DE = self.parse_de
         HL = self.parse_hl
@@ -284,6 +286,7 @@ class Z80AsmParser:
                 # 8-bit load group
                 (REG, REG): D(1, lambda d, s: (0x40 | (d << 3) | s,)),
                 (REG, I8): D(2, lambda d, s: (0x06 | (d << 3), s)),
+                (REG, CH): D(2, lambda d, s: (0x06 | (d << 3), s)),
                 (REG, AHL): D(1, lambda d, _: (0x46 | (d << 3),)),
                 (REG, IXD): D(3, lambda d, n: (0xdd, 0x46 | (d << 3), n)),
                 (REG, IYD): D(3, lambda d, n: (0xfd, 0x46 | (d << 3), n)),
@@ -427,6 +430,7 @@ class Z80AsmParser:
             _("CP"): {
                 (REG,): D(1, lambda r: (0xc8 | r,)),
                 (I8,): D(2, lambda n: (0xfe, n)),
+                (CH,): D(2, lambda n: (0xfe, n)),
                 (AHL,): (0xbe,),
                 (IXD,): D(3, lambda d: (0xdd, 0xbe, d)),
                 (IYD,): D(3, lambda d: (0xfd, 0xbe, d)),
@@ -1081,6 +1085,21 @@ class Z80AsmParser:
         return None
 
     @memoize
+    def parse_char(self) -> Optional[Operand]:
+        """Parse an 8-bit character literal"""
+        pos = self.mark()
+        if self.expect("'"):
+            if ch := self.expect(r".", "char"):
+                if self.expect("'"):
+                    if (bit_len := ceil_pow2(ord(ch).bit_length())) > 8:
+                        self.reset(pos)
+                        self.error("char must be 8-bit, got {}-bit", bit_len)
+                    op = Operand(OperandKind.Char, ch)
+                    return self.parseinfo(op, pos)
+        self.reset(pos)
+        return None
+
+    @memoize
     def expect_integer(self, bits: int = 8) -> Optional[int]:
         """Parses n-bit integer in decimal, hexadecimal, octal, or binary format"""
         pos = self.mark()
@@ -1326,10 +1345,17 @@ class Z80AsmPrinter:
     values.
     """
 
-    def __init__(self, file: TextIO, with_addr: bool = True, replace_names: bool = False):
+    def __init__(
+        self,
+        file: TextIO,
+        with_addr: bool = True,
+        replace_names: bool = False,
+        interpret_literals: bool = False
+    ):
         self.file = file
         self.with_addr = with_addr
         self.replace_names = replace_names
+        self.interpret_literals = interpret_literals
         self.addr: int = 0
 
         self.indent_level = ""
@@ -1373,6 +1399,12 @@ class Z80AsmPrinter:
             else:
                 self.print(op.name)
 
+        def handle_char_op(op):
+            if self.interpret_literals:
+                self.print(f"0x{ord(op.value)}")
+            else:
+                self.print(f"'{repr(op.value)[1:-1]}'")
+
         dct = {
             OperandKind.Int8: lambda op: self.print(f"0x{op.value:02X}"),
             OperandKind.Int16: lambda op: self.print(f"0x{op.value:04X}"),
@@ -1384,6 +1416,7 @@ class Z80AsmPrinter:
             OperandKind.AbsLabel: handle_label_op,
             OperandKind.RelLabel: handle_label_op,
             OperandKind.Const: handle_label_op,
+            OperandKind.Char: handle_char_op
         }
 
         return dct
@@ -1504,7 +1537,8 @@ class Z80AsmCompiler:
             OperandKind.RegPair: lambda op: self.regptoi(op.value),
             OperandKind.Addr: lambda op: self.i16top(op.value) if isinstance(op.value, int) else None,
             OperandKind.Flag: lambda op: self.FLAGS[op.value],
-            OperandKind.MemLoc: handle_memloc_op
+            OperandKind.MemLoc: handle_memloc_op,
+            OperandKind.Char: lambda op: ord(op.value)
         }
 
         return dct
