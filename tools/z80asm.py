@@ -10,6 +10,7 @@ from io import StringIO
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from contextlib import contextmanager
+from functools import lru_cache
 
 
 class OperandKind(Enum):
@@ -1481,8 +1482,30 @@ class Z80AsmCompiler:
         if self.errors:
             raise Z80Error(*self.errors)
 
+    @lru_cache(maxsize=1)
+    def _construct_dispatch_dict(self):
+
+        def handle_memloc_op(op):
+            if (val := self.MEMLOCS.get(op.value)) is not None:
+                return val
+            self.error(op, "invalid Page 0 Memory Location")
+
+        dct = {
+            OperandKind.Int16: lambda op: self.i16top(op.value),
+            OperandKind.AbsLabel: lambda op: self.i16top(op.value),
+            OperandKind.RelLabel: lambda op: op.value,
+            OperandKind.Reg: lambda op: self.regtoi(op.value),
+            OperandKind.RegPair: lambda op: self.regptoi(op.value),
+            OperandKind.Addr: lambda op: self.i16top(op.value) if isinstance(op.value, int) else None,
+            OperandKind.Flag: lambda op: self.FLAGS[op.value],
+            OperandKind.MemLoc: handle_memloc_op
+        }
+
+        return dct
+
     def compile_instruction(self, inst: Statement):
         """Compile instruction objects into sequences of bytes"""
+        dispatch_dict = self._construct_dispatch_dict()
         if not isinstance(inst, Instruction):
             return
         inst: Instruction
@@ -1491,28 +1514,8 @@ class Z80AsmCompiler:
         else:
             args = []
             for op in inst.operands:
-                if op.kind == OperandKind.Int16:
-                    args.append(self.i16top(op.value))
-                elif op.kind == OperandKind.AbsLabel:
-                    args.append(self.i16top(op.value))
-                elif op.kind == OperandKind.RelLabel:
-                    args.append(op.value)
-                elif op.kind == OperandKind.Reg:
-                    args.append(self.regtoi(op.value))
-                elif op.kind == OperandKind.RegPair:
-                    args.append(self.regptoi(op.value))
-                elif op.kind == OperandKind.Addr:
-                    if isinstance(op.value, int):
-                        args.append(self.i16top(op.value))
-                    else:
-                        args.append(None)
-                elif op.kind == OperandKind.Flag:
-                    args.append(self.FLAGS[op.value])
-                elif op.kind == OperandKind.MemLoc:
-                    if (val := self.MEMLOCS.get(op.value)) is not None:
-                        args.append(val)
-                    else:
-                        self.error(op, "invalid Page 0 Memory Location")
+                if (handler := dispatch_dict.get(op.kind)) is not None:
+                    args.append(handler(op))
                 else:
                     assert isinstance(op.value, int)
                     args.append(op.value)
