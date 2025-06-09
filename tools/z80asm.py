@@ -1358,34 +1358,40 @@ class Z80AsmPrinter:
         elif isinstance(obj, Operand):
             self.print_operand(obj)
 
+    @lru_cache(maxsize=1)
+    def _construct_print_operand_dispatch_dict(self):
+
+        def handle_addr_op(op):
+            if isinstance(op.value, str):
+                self.print(f"({op.value})")
+            else:
+                self.print(f"(0x{op.value:04X})")
+
+        def handle_label_op(op):
+            if self.replace_names:
+                self.print(f"0x{op.value:04X}")
+            else:
+                self.print(op.name)
+
+        dct = {
+            OperandKind.Int8: lambda op: self.print(f"0x{op.value:02X}"),
+            OperandKind.Int16: lambda op: self.print(f"0x{op.value:04X}"),
+            OperandKind.IX: lambda op: self.print("ix"),
+            OperandKind.IY: lambda op: self.print("iy"),
+            OperandKind.Addr: handle_addr_op,
+            OperandKind.IXDAddr: lambda op: self.print(f"(ix{op.value:+})"),
+            OperandKind.IYDAddr: lambda op: self.print(f"(iy{op.value:+})"),
+            OperandKind.AbsLabel: handle_label_op,
+            OperandKind.RelLabel: handle_label_op,
+            OperandKind.Const: handle_label_op,
+        }
+
+        return dct
+
     def print_operand(self, obj: Operand):
-        if obj.kind == OperandKind.Int8:
-            self.print(f"0x{obj.value:02X}")
-        elif obj.kind == OperandKind.Int16:
-            self.print(f"0x{obj.value:04X}")
-        elif obj.kind == OperandKind.IX:
-            self.print("ix")
-        elif obj.kind == OperandKind.IY:
-            self.print("iy")
-        elif obj.kind == OperandKind.Addr:
-            if isinstance(obj.value, str):
-                self.print(f"({obj.value})")
-            else:
-                self.print(f"(0x{obj.value:04X})")
-        elif obj.kind == OperandKind.IXDAddr:
-            self.print(f"(ix{obj.value:+})")
-        elif obj.kind == OperandKind.IYDAddr:
-            self.print(f"(iy{obj.value:+})")
-        elif obj.kind == OperandKind.AbsLabel or obj.kind == OperandKind.Const:
-            if self.replace_names:
-                self.print(f"0x{obj.value:04X}")
-            else:
-                self.print(obj.name)
-        elif obj.kind == OperandKind.RelLabel:
-            if self.replace_names:
-                self.print(f"{obj.value:+}")
-            else:
-                self.print(obj.name)
+        dispatch_dict = self._construct_print_operand_dispatch_dict()
+        if (handler := dispatch_dict.get(obj.kind)) is not None:
+            handler(obj)
         else:
             self.print(obj.value)
 
