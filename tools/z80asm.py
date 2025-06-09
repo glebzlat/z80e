@@ -649,6 +649,13 @@ class Z80AsmParser:
             "equ": [self.parse_const, self.parse_i8_op]
         }
 
+        # Used by parse_char
+        self.escape_chars = {
+            "n": "\n",
+            "r": "\r",
+            "t": "\t"
+        }
+
     def __init__(self):
         self.definitions()
 
@@ -1089,13 +1096,19 @@ class Z80AsmParser:
         """Parse an 8-bit character literal"""
         pos = self.mark()
         if self.expect("'"):
-            if ch := self.expect(r".", "char"):
-                if self.expect("'"):
-                    if (bit_len := ceil_pow2(ord(ch).bit_length())) > 8:
-                        self.reset(pos)
-                        self.error("char must be 8-bit, got {}-bit", bit_len)
-                    op = Operand(OperandKind.Char, ch)
-                    return self.parseinfo(op, pos)
+            if self.expect(r"\\"):
+                if ch := self.expect(r"[rnt]"):
+                    val = self.escape_chars[ch[0]]
+                else:
+                    self.error("invalid escape sequence")
+            elif ch := self.expect(r"."):
+                val = ch[0]
+            if not self.expect(r"'"):
+                self.error_from_last_expect()
+            if (bit_len := ceil_pow2(ord(val).bit_length())) > 8:
+                self.reset(pos)
+                self.error("char must be 8-bit, got {}-bit", bit_len)
+            return self.parseinfo(Operand(OperandKind.Char, val), pos)
         self.reset(pos)
         return None
 
