@@ -1318,6 +1318,9 @@ class Z80AsmLayouter:
     def layout_instruction(self, i: int, inst):
         if isinstance(inst, Directive):
             if inst.kind == DirectiveKind.org:
+                addr = inst.operands[0].value
+                if self.addr > addr:
+                    self.error(f"org directive address 0x{addr:04X} is behind current address 0x{self.addr:04X}", inst)
                 self.addr = inst.operands[0].value
                 inst.addr = self.addr
             elif inst.kind == DirectiveKind.equ:
