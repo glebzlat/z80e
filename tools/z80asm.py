@@ -109,6 +109,7 @@ class Opcode(Enum):
 class DirectiveKind(Enum):
     org = auto()
     equ = auto()
+    db = auto()
 
 
 @dataclass
@@ -155,6 +156,7 @@ class Directive(ParseInfo):
     kind: DirectiveKind
     operands: list[Operand] = field(default_factory=list)
     addr: Optional[int] = None
+    length: Optional[int] = None
 
     def __str__(self) -> str:
         operands = ", ".join(str(op) for op in self.operands)
@@ -180,6 +182,10 @@ def ceil_pow2(v: int) -> int:
     while v > p:
         p = p << 1
     return p
+
+
+def isiterable(obj: object) -> bool:
+    return getattr(obj, "__iter__", None) is not None
 
 
 def memoize(fn: Callable):
@@ -322,6 +328,11 @@ class Z80AsmParser:
                 (SP, HL): (0xf9,),
                 (SP, IX): (0xdd, 0xf9),
                 (SP, IY): (0xfd, 0xf9),
+
+                (REP, LBLA): D(3, lambda d, n: (0x01 | (d << 4), n[0], n[1])),
+                (IX, LBLA): D(4, lambda _, n: (0xdd, 0x21, n[0], n[1])),
+                (IY, LBLA): D(4, lambda _, n: (0xfd, 0x21, n[0], n[1])),
+                (HL, LBLA): D(3, lambda _, n: (0x2a, n[0], n[1])),
             },
             _("PUSH"): {
                 (REP,): D(1, lambda rr: (0xc5 | (rr << 4),)),
@@ -646,7 +657,8 @@ class Z80AsmParser:
 
         self.directives = {
             "org": [self.parse_i16_op],
-            "equ": [self.parse_const, self.parse_i8_op]
+            "equ": [self.parse_const, self.parse_i8_op],
+            "db": [self.parse_byte_sequence]
         }
 
         # Used by parse_char
@@ -798,7 +810,10 @@ class Z80AsmParser:
         last_parselet_idx = len(parselets) - 1
         for i, parselet in enumerate(parselets):
             if arg := parselet():
-                args.append(arg)
+                if isiterable(arg):
+                    args.extend(arg)
+                else:
+                    args.append(arg)
             else:
                 # Directives have no alternatives, so if the parselet failed,
                 # throw an error.
@@ -1304,9 +1319,14 @@ class Z80AsmLayouter:
         if isinstance(inst, Directive):
             if inst.kind == DirectiveKind.org:
                 self.addr = inst.operands[0].value
+                inst.addr = self.addr
             elif inst.kind == DirectiveKind.equ:
                 self.add_const(inst)
-            inst.addr = self.addr
+                inst.addr = self.addr
+            elif inst.kind == DirectiveKind.db:
+                inst.length = self.db_length(inst)
+                inst.addr = self.addr
+                self.addr += inst.length + 1
         elif isinstance(inst, Label):
             self.labels[i] = inst
         elif isinstance(inst, Instruction):
@@ -1319,6 +1339,16 @@ class Z80AsmLayouter:
                 elif op.kind == OperandKind.Const:
                     self.const_refs.append(op)
 
+    def db_length(self, directive: Directive) -> int:
+        """Calculate the length of a Define Byte directive"""
+        length = 0
+        for op in directive.operands:
+            if isinstance(op.value, str):
+                length += len(op.value)
+            elif isinstance(op.value, int):
+                length += 1
+        return length
+
     def assign_label_addrs(self):
         for idx, label in self.labels.items():
             if (addr := self.get_next_addr(idx, self.program)) is not None:
@@ -1329,10 +1359,9 @@ class Z80AsmLayouter:
         for i in range(idx - 1, 0, -1):
             inst = program[i]
             if isinstance(inst, Instruction):
-                return inst.addr + inst.length + 1
+                return inst.addr + inst.length
             if isinstance(inst, Directive):
-                if inst.kind == DirectiveKind.org:
-                    return inst.addr
+                return inst.addr
         return 0
 
     def resolve_labels(self):
@@ -1341,11 +1370,9 @@ class Z80AsmLayouter:
             if (addr := labels.get(op.value)) is not None:
                 if op.kind == OperandKind.RelLabel:
                     addr -= inst.addr
-                    if addr < 0:
-                        # CPU already consumed the jump instruction and advanced its
-                        # program counter, so compensate the instruction length.
-                        addr -= inst.length
-                    # Check that the address is within the relative jump range.
+                    if addr > 0:
+                        # Next byte offset
+                        addr += 1
                     if addr > 129 or addr < -126:
                         self.error("label outside relative jump range")
                 op.name = op.value
@@ -1416,6 +1443,9 @@ class Z80AsmPrinter:
             with self.line():
                 self.print(f".{obj.kind.name}")
                 self.print_list(obj.operands)
+            if obj.kind == DirectiveKind.db:
+                # +1 next byte
+                self.addr += obj.length + 1
         elif isinstance(obj, Instruction):
             with self.indent():
                 with self.line():
@@ -1573,13 +1603,33 @@ class Z80AsmCompiler:
         self.errors: list[Z80Error] = []
 
     def compile_program(self):
-        for inst in self.program:
-            self.compile_instruction(inst)
+        for stmt in self.program:
+            self.compile_statement(stmt)
         if self.errors:
             raise Z80Error(*self.errors)
 
+    def compile_statement(self, stmt: Statement):
+        """Compile statements into sequences of bytes"""
+        if isinstance(stmt, Directive):
+            self.compile_directive(stmt)
+            return
+        if isinstance(stmt, Label):
+            return
+        if isinstance(stmt, Instruction):
+            self.compile_instruction(stmt)
+
+    def compile_directive(self, d: Directive):
+        if d.kind == DirectiveKind.db:
+            op_bytes = []
+            for op in d.operands:
+                if isinstance(op.value, str):
+                    op_bytes.extend(ord(i) for i in op.value)
+                elif isinstance(op.value, int):
+                    op_bytes.append(op.value)
+            self.compiled[d.addr] = tuple(op_bytes)
+
     @lru_cache(maxsize=1)
-    def _construct_dispatch_dict(self):
+    def _construct_operand_dispatch_dict(self):
 
         def handle_memloc_op(op):
             if (val := self.MEMLOCS.get(op.value)) is not None:
@@ -1600,15 +1650,11 @@ class Z80AsmCompiler:
 
         return dct
 
-    def compile_instruction(self, inst: Statement):
-        """Compile instruction objects into sequences of bytes"""
-        dispatch_dict = self._construct_dispatch_dict()
-        if not isinstance(inst, Instruction):
-            return
-        inst: Instruction
+    def compile_instruction(self, inst: Instruction):
         if isinstance(inst.op_bytes, tuple):
             op_bytes = inst.op_bytes
         else:
+            dispatch_dict = self._construct_operand_dispatch_dict()
             args = []
             for op in inst.operands:
                 if (handler := dispatch_dict.get(op.kind)) is not None:
