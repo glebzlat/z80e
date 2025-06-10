@@ -598,7 +598,7 @@ class Z80AsmParser:
             },
             _("RET"): {
                 (): (0xc9,),
-                (CFF,): D(1, lambda f: (0xc0 | (f << 3))),
+                (CFF,): D(1, lambda f: (0xc0 | (f << 3),)),
             },
             _("RETI"): {
                 (): (0xed, 0x4d),
