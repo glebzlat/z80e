@@ -652,7 +652,8 @@ class Z80AsmParser:
         self.escape_chars = {
             "n": "\n",
             "r": "\r",
-            "t": "\t"
+            "t": "\t",
+            "0": "\0"
         }
 
     def __init__(self):
@@ -1096,7 +1097,7 @@ class Z80AsmParser:
         pos = self.mark()
         if self.expect("'"):
             if self.expect(r"\\"):
-                if ch := self.expect(r"[rnt]"):
+                if ch := self.expect(r"[rnt0]"):
                     val = self.escape_chars[ch[0]]
                 else:
                     self.error("invalid escape sequence")
