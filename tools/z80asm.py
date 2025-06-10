@@ -1415,95 +1415,132 @@ class Z80AsmLayouter:
 class Z80AsmPrinter:
     """Pretty print an assembly program
 
-    If `with_addr` is True, displays a 16-bit hex address for each line.
-
     If `replace_names` is True, replaces Label and Const references by their
     values.
     """
 
+    ESCCHARS = {
+        "\0": r"\0",
+        "\r": r"\r",
+        "\n": r"\n",
+        "\t": r"\t"
+    }
+
     def __init__(
         self,
         file: TextIO,
-        with_addr: bool = True,
         replace_names: bool = False,
         interpret_literals: bool = False
     ):
         self.file = file
-        self.with_addr = with_addr
         self.replace_names = replace_names
         self.interpret_literals = interpret_literals
         self.addr: int = 0
-
-        self.indent_level = ""
-        self.print_end = "\n"
+        self.new_line = True
 
     def print_program(self, instructions: list[Statement]):
         for inst in instructions:
-            self.print_item(inst)
+            self.print_statement(inst)
 
-    def print_item(self, obj: Statement | Operand):
-        if isinstance(obj, Directive):
-            if obj.kind == DirectiveKind.org:
-                self.addr = obj.operands[0].value
-            with self.line():
-                self.print(f".{obj.kind.name}")
-                self.print_list(obj.operands)
-            if obj.kind == DirectiveKind.db:
-                # +1 next byte
-                self.addr += obj.length + 1
-        elif isinstance(obj, Instruction):
-            with self.indent():
-                with self.line():
-                    self.print(f"{obj.opcode.name.lower():<6}", end="")
-                    self.print_list(obj.operands)
-            self.addr += obj.length
-        elif isinstance(obj, Label):
-            with self.line():
-                self.print(f"{obj.name}:")
-        elif isinstance(obj, Operand):
-            self.print_operand(obj)
+    def print_statement(self, stmt: Statement):
+        range_start, range_end = 0, 4
+        cont_addr = 0
+        with self.line():
+            self.addr = stmt.addr
+            self.put(f"{self.addr:04X}")
+            if not isinstance(stmt, Label) and stmt.encoded is not None:
+                encoded = " ".join(f"{i:02X}" for i in stmt.encoded[range_start:range_end])
+                self.put(f"{encoded:<12}")
+                cont_addr = self.addr + range_end
+            else:
+                self.put(" " * 12)
+            if isinstance(stmt, Label):
+                self.print_label(stmt)
+            elif isinstance(stmt, Instruction):
+                self.print_instruction(stmt)
+            elif isinstance(stmt, Directive):
+                self.print_directive(stmt)
+        if not isinstance(stmt, Label) and stmt.encoded is not None:
+            if range_end < len(stmt.encoded):
+                range_start, range_end = range_end, range_end + 4
+                while chunk := stmt.encoded[range_start:range_end]:
+                    with self.line():
+                        self.put(f"{cont_addr:04X}")
+                        encoded = " ".join(f"{i:02X}" for i in chunk)
+                        self.put(encoded)
+                        range_start, range_end = range_end, range_end + 4
+                        cont_addr += len(chunk)
+
+    def print_label(self, lbl: Label):
+        self.put(f"{lbl.name}:")
+
+    def print_instruction(self, inst: Instruction):
+        self.put(f"    {inst.opcode.name.lower():<6}")
+        self.print_operands(inst.operands)
+
+    def print_directive(self, d: Directive):
+        self.put(f".{d.kind.name}")
+        self.print_operands(d.operands)
+        if d.kind == DirectiveKind.db:
+            # +1 next byte offset
+            self.addr += d.length + 1
+
+    def print_operands(self, ops: list[Operand]):
+        last_el_idx = len(ops) - 1
+        for i, op in enumerate(ops):
+            self.print_operand(op)
+            if i != last_el_idx:
+                self.put(",", separate=False)
+
+    def print_operand(self, obj: Operand):
+        dispatch_dict = self._construct_print_operand_dispatch_dict()
+        if (handler := dispatch_dict.get(obj.kind)) is not None:
+            handler(obj)
+        else:
+            self.put(obj.value)
 
     @lru_cache(maxsize=1)
     def _construct_print_operand_dispatch_dict(self):
 
         def handle_addr_op(op):
             if isinstance(op.value, str):
-                self.print(f"({op.value})")
+                self.put(f"({op.value})")
             else:
-                self.print(f"(0x{op.value:04X})")
+                self.put(f"(0x{op.value:04X})")
 
         def handle_label_op(op):
             if self.replace_names:
-                self.print(f"0x{op.value:04X}")
+                self.put(f"0x{op.value:04X}")
             else:
-                self.print(op.name)
+                self.put(op.name)
 
         def handle_rel_label_op(op):
             if self.replace_names:
-                self.print(f"{op.value:+}")
+                self.put(f"{op.value:+}")
             else:
-                self.print(op.name)
+                self.put(op.name)
 
         def handle_char_op(op):
             if self.interpret_literals:
-                self.print(f"0x{ord(op.value):02X}")
+                self.put(f"0x{ord(op.value):02X}")
             else:
-                self.print(f"'{repr(op.value)[1:-1]}'")
+                self.put(f"'{self.esc_char(op.value)}'")
 
         def handle_string_op(op):
             if self.interpret_literals:
-                self.print(" ".join(f"0x{ord(c):02X}" for c in op.value))
+                self.put(" ".join(f"0x{ord(c):02X}" for c in op.value))
             else:
-                self.print(f'"{repr(op.value)[1:-1]}"')
+                s = "".join(self.esc_char(c) for c in op.value)
+                self.put(f'"{s}"')
 
         dct = {
-            OperandKind.Int8: lambda op: self.print(f"0x{op.value:02X}"),
-            OperandKind.Int16: lambda op: self.print(f"0x{op.value:04X}"),
-            OperandKind.IX: lambda op: self.print("ix"),
-            OperandKind.IY: lambda op: self.print("iy"),
+            OperandKind.Int8: lambda op: self.put(f"0x{op.value:02X}"),
+            OperandKind.Int16: lambda op: self.put(f"0x{op.value:04X}"),
+            OperandKind.IX: lambda op: self.put("ix"),
+            OperandKind.IY: lambda op: self.put("iy"),
             OperandKind.Addr: handle_addr_op,
-            OperandKind.IXDAddr: lambda op: self.print(f"(ix{op.value:+})"),
-            OperandKind.IYDAddr: lambda op: self.print(f"(iy{op.value:+})"),
+            OperandKind.IXDAddr: lambda op: self.put(f"(ix{op.value:+})"),
+            OperandKind.IYDAddr: lambda op: self.put(f"(iy{op.value:+})"),
             OperandKind.AbsLabel: handle_label_op,
             OperandKind.RelLabel: handle_rel_label_op,
             OperandKind.Const: handle_label_op,
@@ -1513,51 +1550,24 @@ class Z80AsmPrinter:
 
         return dct
 
-    def print_operand(self, obj: Operand):
-        dispatch_dict = self._construct_print_operand_dispatch_dict()
-        if (handler := dispatch_dict.get(obj.kind)) is not None:
-            handler(obj)
-        else:
-            self.print(obj.value)
-
-    def print_list(self, seq: list | tuple, sep=", "):
-        """Pretty print a sequence of items delimiting them with the given separator"""
-        save_end = self.print_end
-        self.print_end = ""
-        last_el_idx = len(seq) - 1
-        for i, el in enumerate(seq):
-            self.print_item(el)
-            if i != last_el_idx:
-                self.print(sep)
-        self.print_end = save_end
-
-    @contextmanager
-    def indent(self):
-        """Increase indentation level for the following lines"""
-        save_indent = self.indent_level
-        self.indent_level += "    "
-        try:
-            yield
-        finally:
-            self.indent_level = save_indent
-
     @contextmanager
     def line(self):
         """Put the subsequent prints on one line"""
-        save_end = self.print_end
-        self.print_end = " "
-        if self.with_addr:
-            self.print(f"{self.addr:04X}:")
-        self.print(self.indent_level, end="")
         try:
             yield
         finally:
-            self.print_end = save_end
-            self.print()
+            self.put("\n", separate=False)
+            self.new_line = True
 
-    def print(self, *args, sep=" ", end=None):
-        end = self.print_end if end is None else end
-        print(*args, sep=sep, end=end, file=self.file)
+    def put(self, *args, separate: bool = True):
+        if separate and not self.new_line:
+            print(" ", end="", file=self.file)
+        print(*args, end="", file=self.file)
+        self.new_line = False
+
+    def esc_char(self, ch: str):
+        """Escape a character or return it as is"""
+        return self.ESCCHARS.get(ch, ch)
 
 
 class Z80AsmCompiler:
@@ -1670,14 +1680,6 @@ class Z80AsmCompiler:
             assert all(b.bit_length() <= 8 for b in op_bytes)
         inst.encoded = tuple((i & 0xff) for i in op_bytes)
 
-    def pretty_print(self, file: TextIO, with_addr: bool = True):
-        """Pretty print program byte representation"""
-        for inst in self.program:
-            if not isinstance(inst, Label) and inst.encoded is not None:
-                print(f"{inst.addr:04X} ", end="", file=file)
-                encoded = " ".join(f"{i:02X}" for i in inst.encoded)
-                print(encoded, file=file)
-
     def emit_bytes(self, file: BinaryIO):
         """Emit compiled program as bytes"""
         prev_addr, prev_len = 0, 0
@@ -1729,16 +1731,14 @@ if __name__ == "__main__":
 
     asm = Z80AsmParser()
     ltr = Z80AsmLayouter(asm.instructions)
-    printer = Z80AsmPrinter(file=sys.stdout, with_addr=True)
     compiler = Z80AsmCompiler(program=asm.instructions)
+    printer = Z80AsmPrinter(file=sys.stdout)
     for i in ns.inputs:
         try:
             asm.parse_file(i)
             ltr.layout_program()
-            printer.print_program(asm.instructions)
-            print()
             compiler.compile_program()
-            compiler.pretty_print(file=sys.stdout)
+            printer.print_program(asm.instructions)
 
             bstream = BytesIO()
             compiler.emit_bytes(bstream)
