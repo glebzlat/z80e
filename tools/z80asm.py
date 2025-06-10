@@ -726,7 +726,7 @@ class Z80AsmParser:
         pos = self.mark()
         if mnemonic := self.expect_identifier():
             parselet_alts = self.mnemonics.get(mnemonic.upper())
-            if not parselet_alts:
+            if parselet_alts is None:
                 self.reset(pos)
                 self.error("unknown mnemonic: {}", mnemonic)
             pos = self.mark()
@@ -734,7 +734,7 @@ class Z80AsmParser:
                 # Instruction may have several operand type alternatives,
                 # e.g. `ld <register> <8-bit-int>` and `ld <addr> <register-pair>`,
                 # so backtrack until we found a match or there is no alternative left.
-                if args := self.parse_instruction_args(alt):
+                if (args := self.parse_instruction_args(alt)) is not None:
                     if isinstance(data, self.InstructionData):
                         byte_len, op_bytes = data.instruction_bytes, data.op_bytes
                     else:
