@@ -1095,13 +1095,13 @@ class Z80AsmParser:
     def parse_char(self) -> Optional[Operand]:
         """Parse an 8-bit character literal"""
         pos = self.mark()
-        if self.expect("'"):
-            if self.expect(r"\\"):
+        if self.expect("'", None, False):
+            if self.expect(r"\\", None, False):
                 if ch := self.expect(r"[rnt0]"):
                     val = self.escape_chars[ch[0]]
                 else:
                     self.error("invalid escape sequence")
-            elif ch := self.expect(r"."):
+            elif ch := self.expect(r"[^']", None, False):
                 val = ch[0]
             if not self.expect(r"'"):
                 self.error_from_last_expect()
