@@ -33,6 +33,7 @@ class OperandKind(Enum):
     # Page 0 Memory Location
     MemLoc = auto()
     Char = auto()
+    String = auto()
 
 
 class Opcode(Enum):
@@ -1113,6 +1114,48 @@ class Z80AsmParser:
         return None
 
     @memoize
+    def parse_string(self) -> Optional[Operand]:
+        """Parse a sequence of 8-bit characters"""
+        pos = self.mark()
+        chars = []
+        if self.expect('"', None, False):
+            while not self.expect('"', None, False):
+                ch_pos = self.mark()
+                if self.eol():
+                    self.error_from_last_expect()
+                if self.expect(r"\\", None, False):
+                    if ch := self.expect(r"[rnt0]", None, False):
+                        chars.append(self.escape_chars[ch[0]])
+                    else:
+                        self.error("invalid escape sequence")
+                elif ch := self.expect(r'[^"]', None, False):
+                    val = ch[0]
+                    if (bit_len := ceil_pow2(ord(val).bit_length())) > 8:
+                        self.reset(ch_pos)
+                        self.error("char must be 8-bit, got {}-bit", bit_len)
+                    chars.append(val)
+            s = "".join(chars)
+            return self.parseinfo(Operand(OperandKind.String, s), pos)
+        self.reset(pos)
+        return None
+
+    def parse_byte_sequence(self):
+        """Parse sequence of strings, chars, and 8-bit integers"""
+        args = []
+        while (
+            (arg := self.parse_string()) is not None or
+            (arg := self.parse_char()) is not None or
+            (arg := self.parse_i8_op()) is not None
+        ):
+            if not self.eol():
+                if not self.expect_comma():
+                    self.error_from_last_expect()
+            args.append(arg)
+        if not args:
+            self.error("expected at least one string literal, char literal, or 8-bit integer")
+        return args
+
+    @memoize
     def expect_integer(self, bits: int = 8) -> Optional[int]:
         """Parses n-bit integer in decimal, hexadecimal, octal, or binary format"""
         pos = self.mark()
@@ -1400,11 +1443,23 @@ class Z80AsmPrinter:
             else:
                 self.print(op.name)
 
+        def handle_rel_label_op(op):
+            if self.replace_names:
+                self.print(f"{op.value:+}")
+            else:
+                self.print(op.name)
+
         def handle_char_op(op):
             if self.interpret_literals:
-                self.print(f"0x{ord(op.value)}")
+                self.print(f"0x{ord(op.value):02X}")
             else:
                 self.print(f"'{repr(op.value)[1:-1]}'")
+
+        def handle_string_op(op):
+            if self.interpret_literals:
+                self.print(" ".join(f"0x{ord(c):02X}" for c in op.value))
+            else:
+                self.print(f'"{repr(op.value)[1:-1]}"')
 
         dct = {
             OperandKind.Int8: lambda op: self.print(f"0x{op.value:02X}"),
@@ -1415,9 +1470,10 @@ class Z80AsmPrinter:
             OperandKind.IXDAddr: lambda op: self.print(f"(ix{op.value:+})"),
             OperandKind.IYDAddr: lambda op: self.print(f"(iy{op.value:+})"),
             OperandKind.AbsLabel: handle_label_op,
-            OperandKind.RelLabel: handle_label_op,
+            OperandKind.RelLabel: handle_rel_label_op,
             OperandKind.Const: handle_label_op,
-            OperandKind.Char: handle_char_op
+            OperandKind.Char: handle_char_op,
+            OperandKind.String: handle_string_op,
         }
 
         return dct
