@@ -144,6 +144,7 @@ class Instruction(ParseInfo):
     op_bytes: Optional[Callable | tuple[int, ...]] = field(default=None, repr=False)
     length: Optional[int] = field(default=None, repr=False)
     addr: Optional[int] = None
+    encoded: Optional[tuple[int, ...]] = None
 
     def __str__(self) -> str:
         operands = ", ".join(str(op) for op in self.operands)
@@ -157,6 +158,7 @@ class Directive(ParseInfo):
     operands: list[Operand] = field(default_factory=list)
     addr: Optional[int] = None
     length: Optional[int] = None
+    encoded: Optional[tuple[int, ...]] = None
 
     def __str__(self) -> str:
         operands = ", ".join(str(op) for op in self.operands)
@@ -1329,7 +1331,7 @@ class Z80AsmLayouter:
             elif inst.kind == DirectiveKind.db:
                 inst.length = self.db_length(inst)
                 inst.addr = self.addr
-                self.addr += inst.length + 1
+                self.addr += inst.length
         elif isinstance(inst, Label):
             self.labels[i] = inst
         elif isinstance(inst, Instruction):
@@ -1601,8 +1603,6 @@ class Z80AsmCompiler:
 
     def __init__(self, program: list[Statement]):
         self.program = program
-
-        self.compiled: dict[int, tuple[int, ...]] = {}
         self.errors: list[Z80Error] = []
 
     def compile_program(self):
@@ -1629,7 +1629,7 @@ class Z80AsmCompiler:
                     op_bytes.extend(ord(i) for i in op.value)
                 elif isinstance(op.value, int):
                     op_bytes.append(op.value)
-            self.compiled[d.addr] = tuple(op_bytes)
+            d.encoded = tuple(op_bytes)
 
     @lru_cache(maxsize=1)
     def _construct_operand_dispatch_dict(self):
@@ -1668,26 +1668,29 @@ class Z80AsmCompiler:
             op_bytes = inst.op_bytes(*args)
             assert isinstance(op_bytes, tuple)
             assert all(b.bit_length() <= 8 for b in op_bytes)
-        self.compiled[inst.addr] = tuple((i & 0xff) for i in op_bytes)
+        inst.encoded = tuple((i & 0xff) for i in op_bytes)
 
     def pretty_print(self, file: TextIO, with_addr: bool = True):
         """Pretty print program byte representation"""
-        for addr, inst in self.compiled.items():
-            if with_addr:
-                print(f"{addr:04X} ", end="", file=file)
-            bytes_str = " ".join(f"{i & 0xff:02X}" for i in inst)
-            print(bytes_str, file=file)
+        for inst in self.program:
+            if not isinstance(inst, Label) and inst.encoded is not None:
+                print(f"{inst.addr:04X} ", end="", file=file)
+                encoded = " ".join(f"{i:02X}" for i in inst.encoded)
+                print(encoded, file=file)
 
     def emit_bytes(self, file: BinaryIO):
         """Emit compiled program as bytes"""
         prev_addr, prev_len = 0, 0
-        for addr, inst in self.compiled.items():
-            if addr - prev_addr > prev_len:
+        for inst in self.program:
+            if isinstance(inst, Label):
+                continue
+            if inst.addr - prev_addr > prev_len:
                 # There is a gap between instructions, fill it up with 0x00
-                file.write(bytes(addr - prev_addr - prev_len))
-            byte_seq = self.tuptobytes(inst)
-            file.write(byte_seq)
-            prev_addr, prev_len = addr, len(inst)
+                file.write(bytes(inst.addr - prev_addr - prev_len))
+            if inst.encoded is not None:
+                file.write(self.tuptobytes(inst.encoded))
+                prev_len = len(inst.encoded)
+            prev_addr = inst.addr
         file.flush()
 
     def i16top(self, i: int) -> tuple[int, int]:
