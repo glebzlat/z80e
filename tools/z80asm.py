@@ -1361,7 +1361,7 @@ class Z80AsmLayouter:
 
     def get_next_addr(self, idx: int, program: list) -> int:
         """Get the next address after the previous instruction"""
-        for i in range(idx - 1, 0, -1):
+        for i in range(idx - 1, -1, -1):
             inst = program[i]
             if isinstance(inst, Instruction):
                 return inst.addr + inst.length
