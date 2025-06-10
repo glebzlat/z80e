@@ -136,12 +136,7 @@ class Operand(ParseInfo):
 
 
 @dataclass
-class Statement(ParseInfo):
-    pass
-
-
-@dataclass
-class Instruction(Statement):
+class Instruction(ParseInfo):
     opcode: Opcode
     operands: list[Operand] = field(default_factory=list)
     op_bytes: Optional[Callable | tuple[int, ...]] = field(default=None, repr=False)
@@ -155,7 +150,7 @@ class Instruction(Statement):
 
 
 @dataclass
-class Directive(Statement):
+class Directive(ParseInfo):
     kind: DirectiveKind
     operands: list[Operand] = field(default_factory=list)
     addr: Optional[int] = None
@@ -166,13 +161,16 @@ class Directive(Statement):
 
 
 @dataclass
-class Label(Statement):
+class Label(ParseInfo):
     name: str
     addr: Optional[int] = None
 
     def __str__(self) -> str:
         addr = f" ({self.addr:04X})" if self.addr is not None else ""
         return f"Label:{self.name}{addr}"
+
+
+Statement = Instruction | Directive | Label
 
 
 def ceil_pow2(v: int) -> int:
