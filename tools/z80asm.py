@@ -5,12 +5,13 @@ import re
 import sys
 
 from functools import wraps
-from typing import Optional, Callable, Any, TextIO, BinaryIO
+from typing import Optional, Callable, Any, TextIO, BinaryIO, Generator
 from io import StringIO, BytesIO
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from contextlib import contextmanager
 from functools import lru_cache
+from itertools import repeat
 
 
 class OperandKind(Enum):
@@ -1680,19 +1681,24 @@ class Z80AsmCompiler:
             assert all(b.bit_length() <= 8 for b in op_bytes)
         inst.encoded = tuple((i & 0xff) for i in op_bytes)
 
-    def emit_bytes(self, file: BinaryIO):
-        """Emit compiled program as bytes"""
+    def encode(self) -> Generator[int, None, None]:
+        """Emit compiled program as a stream of integers"""
         prev_addr, prev_len = 0, 0
         for inst in self.program:
             if isinstance(inst, Label):
                 continue
             if inst.addr - prev_addr > prev_len:
                 # There is a gap between instructions, fill it up with 0x00
-                file.write(bytes(inst.addr - prev_addr - prev_len))
+                yield from repeat(0, inst.addr - prev_addr - prev_len)
             if inst.encoded is not None:
-                file.write(self.tuptobytes(inst.encoded))
+                yield from inst.encoded
                 prev_len = len(inst.encoded)
             prev_addr = inst.addr
+
+    def emit_bytes(self, file: BinaryIO):
+        """Emit compiled program as bytes"""
+        for i in self.encode():
+            file.write(i.to_bytes(1))
         file.flush()
 
     def i16top(self, i: int) -> tuple[int, int]:
@@ -1706,9 +1712,6 @@ class Z80AsmCompiler:
     def regptoi(self, regp: str) -> int:
         """Convert register pair to its integer representation"""
         return self.REGPAIRS[regp]
-
-    def tuptobytes(self, tup: tuple[int, ...]) -> bytes:
-        return b"".join(i.to_bytes() for i in tup)
 
     def error(self, stmt: Optional[Statement], message: str, *args):
         stream = StringIO()
