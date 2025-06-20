@@ -17,5 +17,6 @@ endif()
 
 if(Z80E_TESTING)
     message(STATUS "Enable testing")
-    add_subdirectory(${PROJECT_SOURCE_DIR}/test)
+    target_compile_options(${PROJECT_NAME} PUBLIC -g)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
 endif()

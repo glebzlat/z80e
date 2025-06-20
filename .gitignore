@@ -59,3 +59,13 @@ build/
 
 # Python byte-compiled files
 __pycache__/
+
+# Venv
+.env
+
+# File where I write commit messages
+commit.msg
+
+# Test memory and io files
+memfile
+iofile

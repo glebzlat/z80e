@@ -1,7 +1,8 @@
+#include <assert.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <string.h>
 
 #include <z80e.h>
@@ -16,7 +17,8 @@ uint8_t memread(uint32_t addr, void* ctx);
 void iowrite(uint32_t addr, uint8_t byte, void* ctx);
 uint8_t ioread(uint32_t addr, void* ctx);
 
-char const* binfmt8(u8 v, char* buf);
+char* alloc_binfmt_buffer(int max_bits);
+char const* binfmt(uint32_t v, int width, char* buf);
 void register_dump(z80e* z80);
 
 int main(int argc, char* argv[]) {
@@ -25,7 +27,7 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  char const* mem_filename = argv[1], *io_filename = argv[2];
+  char const *mem_filename = argv[1], *io_filename = argv[2];
 
   FILE* memfile = fopen(mem_filename, "rb+");
   if (memfile == NULL) {
@@ -98,22 +100,36 @@ uint8_t ioread(uint32_t addr, void* ctx) {
   return buf[0];
 }
 
-char const* binfmt8(u8 v, char* buf) {
+char* alloc_binfmt_buffer(int width) {
+  char* buf = malloc(sizeof(*buf) * (width + 3));
+  assert(buf != NULL);
+  return buf;
+}
+
+char const* binfmt(uint32_t v, int width, char* buf) {
   buf[0] = '0';
   buf[1] = 'b';
-  for (int i = 0; i < 8; ++i) {
-    buf[i + 2] = ((v & (1 << (7 - i))) == 0) ? '0' : '1';
+  int i;
+  for (i = 0; i < width; ++i) {
+    char bit;
+    if (v) {
+      bit = (v & 1) == 0 ? '0' : '1';
+      v = v >> 1;
+    } else {
+      bit = '0';
+    }
+    buf[width - i + 1] = bit;
   }
-  buf[10] = '\0';
+  buf[i + 2] = '\0';
   return buf;
 }
 
 void register_dump(z80e* z80) {
-  char buf[11];
+  char* buf = alloc_binfmt_buffer(16);
 #define PRINTREG(NAME)                                                                                                 \
   do {                                                                                                                 \
-    printf(#NAME "\t%s\t", binfmt8(z80->reg.main.NAME, buf));                                                          \
-    printf(#NAME "'\t%s\n", binfmt8(z80->reg.alt.NAME, buf));                                                          \
+    printf(#NAME "\t%s\t", binfmt(z80->reg.main.NAME, 8, buf));                                                        \
+    printf(#NAME "'\t%s\n", binfmt(z80->reg.alt.NAME, 8, buf));                                                        \
   } while (0)
 
   PRINTREG(a);
@@ -126,15 +142,16 @@ void register_dump(z80e* z80) {
   PRINTREG(l);
 
 #undef PRINTREG
-#define PRINTREG(REG1, REG2)                                                                                           \
+#define PRINTREG(WIDTH, REG1, REG2)                                                                                    \
   do {                                                                                                                 \
-    printf(#REG1 "\t%s\t", binfmt8(z80->reg.REG1, buf));                                                               \
-    printf(#REG2 "\t%s\n", binfmt8(z80->reg.REG2, buf));                                                               \
+    printf(#REG1 "\t%s\t", binfmt(z80->reg.REG1, WIDTH, buf));                                                         \
+    printf(#REG2 "\t%s\n", binfmt(z80->reg.REG2, WIDTH, buf));                                                         \
   } while (0)
 
-  PRINTREG(i, r);
-  PRINTREG(ix, iy);
-  PRINTREG(sp, pc);
+  PRINTREG(8, i, r);
+  PRINTREG(16, ix, iy);
+  PRINTREG(16, sp, pc);
 
+  free(buf);
 #undef PRINTREG
 }

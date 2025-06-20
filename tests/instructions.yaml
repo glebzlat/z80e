@@ -1,0 +1,19 @@
+# Format:
+#   - source: <asm code>
+#     regs:
+#       # Registers not mentioned in regs tested to be 0x00.
+#       <register-name>: <int>
+
+tests:
+  - source: |
+      ld a, 0x10
+      halt
+    regs:
+      a: 0x10
+      pc: 0x0003
+  - source: |
+      ld b, 0x10
+      halt
+    regs:
+      b: 0x10
+      pc: 0x0003
