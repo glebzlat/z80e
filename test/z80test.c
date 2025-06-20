@@ -118,7 +118,10 @@ void register_dump(z80e* z80) {
 
 #undef PRINTREG
 #define PRINTREG(REG1, REG2)                                                                                           \
-  printf(#REG1 "\t%s\t" #REG2 "\t%s\n", binfmt8(z80->reg.REG1, buf), binfmt8(z80->reg.REG2, buf))
+  do {                                                                                                                 \
+    printf(#REG1 "\t%s\t", binfmt8(z80->reg.REG1, buf));                                                               \
+    printf(#REG2 "\t%s\n", binfmt8(z80->reg.REG2, buf));                                                               \
+  } while (0)
 
   PRINTREG(i, r);
   PRINTREG(ix, iy);
