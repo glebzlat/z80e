@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <string.h>
 
 #include <z80e.h>
 
@@ -17,16 +19,23 @@ uint8_t ioread(uint32_t addr, void* ctx);
 char const* binfmt8(u8 v, char* buf);
 void register_dump(z80e* z80);
 
-int main(void) {
-  FILE* memfile = fopen("./memfile", "rb+");
-  if (memfile == NULL) {
-    perror("fopen");
+int main(int argc, char* argv[]) {
+  if (argc != 3) {
+    fprintf(stderr, "usage: z80test memfile iofile\n");
     return EXIT_FAILURE;
   }
 
-  FILE* iofile = fopen("./iofile", "rb");
+  char const* mem_filename = argv[1], *io_filename = argv[2];
+
+  FILE* memfile = fopen(mem_filename, "rb+");
+  if (memfile == NULL) {
+    fprintf(stderr, "cannot open file %s: %s\n", mem_filename, strerror(errno));
+    return EXIT_FAILURE;
+  }
+
+  FILE* iofile = fopen(io_filename, "rb");
   if (iofile == NULL) {
-    perror("fopen");
+    fprintf(stderr, "cannot open file %s: %s\n", mem_filename, strerror(errno));
     return EXIT_FAILURE;
   }
 
