@@ -55,6 +55,8 @@ static inline void set_pof(z80e* z80, u8 v) { set_f(z80, v, 2); }
 static inline void set_nf(z80e* z80, u8 v) { set_f(z80, v, 1); }
 static inline void set_cf(z80e* z80, u8 v) { set_f(z80, v, 0); }
 
+inline static int u8_overflow(u8 a, u8 b) { return b > 0 && a > 0xff - b; }
+
 static u8 read_byte(z80e* z80);
 static u8 read_byte_at(z80e* z80, u16 addr);
 static u16 read_word(z80e* z80);
@@ -616,13 +618,13 @@ static u8 dec8(z80e* z80, u8* reg) {
 static u8 inc8(z80e* z80, u8* reg) {
   set_hf(z80, (*reg & 0x0F) == 0x0F); /* Will carry from the 3-rd bit */
   set_pof(z80, *reg == 0xff);         /* Will overflow */
+  set_cf(z80, u8_overflow(*reg, 1));  /* MSB overflow */
   *reg += 1;
   set_sf(z80, (*reg & 0x80) != 0);     /* Is negative */
   set_zf(z80, *reg == 0);              /* Is zero */
   set_nf(z80, 0);                      /* Add = 0/Subtract = 1 */
   set_yf(z80, (*reg & (1 << 5)) != 0); /* Copy of the 5-th bit */
   set_xf(z80, (*reg & (1 << 3)) != 0); /* Copy of the 3-rd bit */
-  // TODO: carry flag!
   return 4;
 }
 
