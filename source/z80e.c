@@ -604,7 +604,7 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
 
 static u8 dec8(z80e* z80, u8* reg) {
   set_hf(z80, (*reg & (1 << 3)) == 0); /* Will borrow from 3-rd bit */
-  set_pof(z80, *reg == 0x80);          /* Will overflow */
+  set_pof(z80, *reg == 0x80);          /* P/V is set if m was 80h before operation */
   *reg -= 1;
   set_sf(z80, (*reg & 0x80) != 0);     /* Is negative */
   set_zf(z80, *reg == 0);              /* Is zero */

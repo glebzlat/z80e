@@ -17,3 +17,32 @@ tests:
     regs:
       b: 0x10
       pc: 0x0003
+  - source: |
+      ld bc, 0x1020
+      halt
+    regs:
+      b: 0x10
+      c: 0x20
+      pc: 0x0004
+  - source: |
+      inc a
+      halt
+    regs:
+      a: 0x01
+      pc: 0x0002
+  - source: |
+      ld b, 0xff
+      inc b
+      halt
+    regs:
+      b: 0x00
+      pc: 0x0004
+      f: 0x55
+  - source: |
+      ld a, 0x00
+      dec a
+      halt
+    regs:
+      a: 0xff
+      pc: 0x0004
+      f: 0xba
