@@ -88,7 +88,7 @@ class InstructionTestMeta(type):
 
         for i, test in enumerate(tests["tests"]):
 
-            def test_fn(self: unittest.TestCase):
+            def test_fn(self: unittest.TestCase, i=i, test=test):
                 source, registers = test["source"], test["regs"]
                 try:
                     encoded = compile_asm(source)
