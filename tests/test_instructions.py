@@ -20,6 +20,8 @@ IOFILE = FILE_DIR / "iofile"
 
 TEST_TIMEOUT_SEC = 1
 
+MEMFILE_SIZE_BYTES = 2 ** 16
+
 
 def compile_asm(source: str) -> bytes:
     parser = Z80AsmParser(undoc_instructions=True)
@@ -58,6 +60,8 @@ def parse_reg_dump(s: str) -> dict[str, int]:
 
 def run_test_program(path: Path, memory: bytes, io: bytes) -> dict[str, int]:
     with open(MEMFILE, "wb") as fout:
+        # Fill the file to 64KiB with zeros.
+        memory += b"\0" * (MEMFILE_SIZE_BYTES - len(memory))
         fout.write(memory)
     with open(IOFILE, "wb") as fout:
         fout.write(io)
@@ -77,6 +81,14 @@ def try_find_desc_line(desc: str) -> Optional[int]:
             if desc in line:
                 return i
     return None
+
+
+def test_memory(case: unittest.TestCase, memmap: dict[int, int]):
+    with open(MEMFILE, "rb") as file:
+        for addr, val in memmap.items():
+            file.seek(addr)
+            b = int.from_bytes(file.read(1))
+            case.assertEqual(b, val, f"byte on 0x{addr:04X}: expected 0x{val:02X}, got 0x{b:02X}")
 
 
 def create_exception(desc: str, what: AssertionError | str) -> AssertionError:
@@ -107,10 +119,13 @@ class InstructionTestMeta(type):
                 if (reason := test.get("skip")) is not None:
                     self.skipTest(reason)
                 source, registers = test["source"], test["regs"]
+                mem = test.get("mem")
                 try:
                     encoded = compile_asm(source)
                     result_registers = run_test_program(PROG, encoded, b"")
                     self.compare_registers(result_registers, registers)
+                    if mem is not None:
+                        test_memory(self, mem)
                 except AssertionError as e:
                     raise create_exception(test["desc"], e) from None
                 except sp.TimeoutExpired:
