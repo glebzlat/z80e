@@ -18,6 +18,8 @@ INSTRUCTIONS = FILE_DIR / "instructions.yaml"
 MEMFILE = FILE_DIR / "memfile"
 IOFILE = FILE_DIR / "iofile"
 
+TEST_TIMEOUT_SEC = 1
+
 
 def compile_asm(source: str) -> bytes:
     parser = Z80AsmParser(undoc_instructions=True)
@@ -60,16 +62,13 @@ def run_test_program(path: Path, memory: bytes, io: bytes) -> dict[str, int]:
     with open(IOFILE, "wb") as fout:
         fout.write(io)
 
-    proc = sp.Popen([path, MEMFILE, IOFILE], stdout=sp.PIPE, text=True, encoding="UTF-8")
+    cmd = [path, MEMFILE, IOFILE]
+    proc = sp.run(cmd, timeout=TEST_TIMEOUT_SEC, stdout=sp.PIPE, stderr=sp.PIPE, text=True, encoding="UTF-8")
 
-    ret = proc.wait()
-    if ret != 0:
-        raise AssertionError(f"process returned code {ret}")
+    if proc.returncode != 0:
+        raise AssertionError(f"process returned code {proc.returncode}: {proc.stderr}")
 
-    dump = proc.stdout.read()
-    proc.stdout.close()
-
-    return parse_reg_dump(dump)
+    return parse_reg_dump(proc.stdout)
 
 
 def try_find_desc_line(desc: str) -> Optional[int]:
@@ -78,6 +77,13 @@ def try_find_desc_line(desc: str) -> Optional[int]:
             if desc in line:
                 return i
     return None
+
+
+def create_exception(desc: str, what: AssertionError | str) -> AssertionError:
+    lineno = try_find_desc_line(desc)
+    lineno = f"{lineno}:" if lineno is not None else ""
+    msg = f"{INSTRUCTIONS}:{lineno} test {desc!r} failed: {what}"
+    return AssertionError(msg)
 
 
 class InstructionTestMeta(type):
@@ -98,17 +104,17 @@ class InstructionTestMeta(type):
         for i, test in enumerate(tests["tests"]):
 
             def test_fn(self: unittest.TestCase, i=i, test=test):
+                if (reason := test.get("skip")) is not None:
+                    self.skipTest(reason)
                 source, registers = test["source"], test["regs"]
                 try:
                     encoded = compile_asm(source)
                     result_registers = run_test_program(PROG, encoded, b"")
                     self.compare_registers(result_registers, registers)
                 except AssertionError as e:
-                    desc = test["desc"]
-                    lineno = try_find_desc_line(desc)
-                    lineno = f"{lineno}:" if lineno is not None else ""
-                    msg = f"{INSTRUCTIONS}:{lineno} test {desc!r} failed: {e}"
-                    raise AssertionError(msg) from None
+                    raise create_exception(test["desc"], e) from None
+                except sp.TimeoutExpired:
+                    raise create_exception(test["desc"], "timeout expired") from None
 
             fn_name = f"test_instruction_{i}"
             test_fn.__name__ = fn_name
