@@ -6,6 +6,8 @@
 
 #define reg(name) (z80->reg.cur->name)
 
+#define bit(v, n) (((v) & (1 << n)) != 0)
+
 static u8 z80e_execute(z80e* z80, u8 opcode);
 
 static u8 dec8(z80e* z80, u8* reg);
@@ -56,6 +58,10 @@ static inline void set_nf(z80e* z80, u8 v) { set_f(z80, v, 1); }
 static inline void set_cf(z80e* z80, u8 v) { set_f(z80, v, 0); }
 
 inline static int u8_overflow(u8 a, u8 b) { return b > 0 && a > 0xff - b; }
+inline static int u16_overflow(u16 a, u16 b) { return b > 0 && a > 0xffff - b; }
+inline static int u8_half_carry(u8 a, u8 b) { return ((a & 0x0f) + (b & 0x0f)) > 0x0f; }
+inline static int u16_byte_carry(u16 a, u16 b) { return ((a & 0x00ff) + (b & 0x00ff)) > 0x00ff; }
+inline static int u8_negative(u8 i) { return bit(i, 7); }
 
 static u8 read_byte(z80e* z80);
 static u8 read_byte_at(z80e* z80, u16 addr);
@@ -136,8 +142,8 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
     reg(a) = (reg(a) << 1) | cf(z80);
     set_nf(z80, 0);
     set_hf(z80, 0);
-    set_yf(z80, (reg(a) & (1 << 5)) != 0);
-    set_xf(z80, (reg(a) & (1 << 3)) != 0);
+    set_yf(z80, bit(reg(a), 5));
+    set_xf(z80, bit(reg(a), 3));
     return 4;
   case 0x08: /* ex af, af' */
     tmp8 = z80->reg.main.a;
@@ -194,8 +200,8 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
     set_cf(z80, tmp8);
     set_nf(z80, 0);
     set_hf(z80, 0);
-    set_yf(z80, (reg(a) & (1 << 5)) != 0);
-    set_xf(z80, (reg(a) & (1 << 3)) != 0);
+    set_yf(z80, bit(reg(a), 5));
+    set_xf(z80, bit(reg(a), 3));
     return 4;
   case 0x18: /* jr d */
     return jr(z80, 1);
@@ -221,8 +227,8 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
     set_cf(z80, tmp8);
     set_nf(z80, 0);
     set_hf(z80, 0);
-    set_yf(z80, (reg(a) & (1 << 5)) != 0);
-    set_xf(z80, (reg(a) & (1 << 3)) != 0);
+    set_yf(z80, bit(reg(a), 5));
+    set_xf(z80, bit(reg(a), 3));
     return 4;
   case 0x20: /* jr nz, d */
     return jr(z80, !zf(z80));
@@ -606,63 +612,62 @@ static u8 dec8(z80e* z80, u8* reg) {
   set_hf(z80, (*reg & (1 << 3)) == 0); /* Will borrow from 3-rd bit */
   set_pof(z80, *reg == 0x80);          /* P/V is set if m was 80h before operation */
   *reg -= 1;
-  set_sf(z80, (*reg & 0x80) != 0);     /* Is negative */
-  set_zf(z80, *reg == 0);              /* Is zero */
-  set_nf(z80, 1);                      /* Add = 0/Subtract = 1 */
-  set_cf(z80, 0);                      /* Carry unaffected */
-  set_yf(z80, (*reg & (1 << 5)) != 0); /* Copy of the 5-th bit */
-  set_xf(z80, (*reg & (1 << 3)) != 0); /* Copy of the 3-rd bit */
+  set_sf(z80, (*reg & 0x80) != 0); /* Is negative */
+  set_zf(z80, *reg == 0);          /* Is zero */
+  set_nf(z80, 1);                  /* Add = 0/Subtract = 1 */
+  set_cf(z80, 0);                  /* Carry unaffected */
+  set_yf(z80, bit(*reg, 5));
+  set_xf(z80, bit(*reg, 3));
   return 4;
 }
 
 static u8 inc8(z80e* z80, u8* reg) {
-  set_hf(z80, (*reg & 0x0F) == 0x0F); /* Will carry from the 3-rd bit */
-  set_pof(z80, *reg == 0xff);         /* Will overflow */
-  set_cf(z80, u8_overflow(*reg, 1));  /* MSB overflow */
+  set_cf(z80, u8_overflow(*reg, 1));
+  set_pof(z80, cf(z80));
+  set_hf(z80, u8_half_carry(*reg, 1));
   *reg += 1;
-  set_sf(z80, (*reg & 0x80) != 0);     /* Is negative */
-  set_zf(z80, *reg == 0);              /* Is zero */
-  set_nf(z80, 0);                      /* Add = 0/Subtract = 1 */
-  set_yf(z80, (*reg & (1 << 5)) != 0); /* Copy of the 5-th bit */
-  set_xf(z80, (*reg & (1 << 3)) != 0); /* Copy of the 3-rd bit */
+  set_sf(z80, u8_negative(*reg));
+  set_zf(z80, *reg == 0);
+  set_yf(z80, bit(*reg, 5));
+  set_xf(z80, bit(*reg, 3));
+  set_nf(z80, 0); /* Add = 0/Subtract = 1 */
   return 4;
 }
 
 static u8 add8(z80e* z80, u8 v) {
-  u8 tmp = reg(a);
+  set_cf(z80, u8_overflow(reg(a), v));
+  set_hf(z80, u8_half_carry(reg(a), v));
   reg(a) += v;
-  set_sf(z80, (reg(a) & 0x80) != 0);              /* Is negative */
-  set_zf(z80, reg(a) == 0);                       /* Is zero */
-  set_yf(z80, (reg(a) & (1 << 5)) != 0);          /* Copy of the 5-th bit */
-  set_hf(z80, (tmp & 0x0f) + (v & 0x0f) == 0x10); /* Carry from the 3-rd bit */
-  set_xf(z80, (reg(a) & (1 << 3)) != 0);          /* Copy of the 3-rd bit */
-  set_nf(z80, 0);                                 /* Add = 1/Subtract = 0 */
-  set_cf(z80, reg(a) < tmp || reg(a) < v);
+  set_sf(z80, u8_negative(reg(a)));
+  set_zf(z80, reg(a) == 0);
+  set_yf(z80, bit(reg(a), 5));
+  set_yf(z80, bit(reg(a), 3));
+  set_nf(z80, 0); /* Add = 0/Subtract = 1 */
   return 4;
 }
 
 static u8 sub8(z80e* z80, u8 v) {
-  set_hf(z80, (reg(a) & (1 << 3)) == 0); /* Will borrow from 3-rd bit */
+  set_hf(z80, (reg(a) & (1 << 3)) == 0); /* Will borrow from bit 3 */
   set_pof(z80, reg(a) < v);              /* Will overflow */
   set_cf(z80, reg(a) < v);               /* Will borrow */
   reg(a) -= v;
-  set_sf(z80, (reg(a) & 0x80) != 0);     /* Is negative */
-  set_zf(z80, reg(a) == 0);              /* Is zero */
-  set_yf(z80, (reg(a) & (1 << 5)) != 0); /* Copy of the 5-th bit */
-  set_xf(z80, (reg(a) & (1 << 3)) != 0); /* Copy of the 3-rd bit */
-  set_nf(z80, 1);                        /* Add = 0/Subtract = 1 */
+  set_sf(z80, u8_negative(reg(a)));
+  set_zf(z80, reg(a) == 0);
+  set_yf(z80, bit(reg(a), 5));
+  set_xf(z80, bit(reg(a), 3));
+  set_nf(z80, 1); /* Add = 0/Subtract = 1 */
   return 4;
 }
 
 static u8 and8(z80e* z80, u8 v) {
   u8 tmp = reg(a);
   reg(a) = reg(a) & v;
-  set_sf(z80, (reg(a) & 0x80) != 0); /* Is negative */
-  set_zf(z80, reg(a) == 0);          /* Is zero */
+  set_sf(z80, u8_negative(reg(a)));
+  set_zf(z80, reg(a) == 0);
   set_hf(z80, 1);
   set_pof(z80, reg(a) < tmp || reg(a) < v); /* Is overflowed */
-  set_yf(z80, (reg(a) & (1 << 5)) != 0);    /* Copy of the 5-th bit */
-  set_xf(z80, (reg(a) & (1 << 3)) != 0);    /* Copy of the 3-rd bit */
+  set_yf(z80, bit(reg(a), 5));
+  set_xf(z80, bit(reg(a), 3));
   set_nf(z80, 0);
   set_cf(z80, 0);
   return 4;
@@ -674,8 +679,8 @@ static u8 xor8(z80e* z80, u8 v) {
   set_zf(z80, reg(a) == 0);
   set_hf(z80, 0);
   set_pof(z80, is_even_parity(reg(a)));
-  set_yf(z80, (reg(a) & (1 << 5)) != 0);
-  set_xf(z80, (reg(a) & (1 << 3)) != 0);
+  set_yf(z80, bit(reg(a), 5));
+  set_xf(z80, bit(reg(a), 3));
   set_nf(z80, 0);
   set_cf(z80, 0);
   return 4;
@@ -683,13 +688,11 @@ static u8 xor8(z80e* z80, u8 v) {
 
 static u16 add16(z80e* z80, u16 a, u16 b) {
   u16 res = a + b;
-  /* Flags are affected by the high-byte addition */
-  u8 msba = (a >> 8), msbb = (b >> 8), msbr = (res >> 8);
-  set_yf(z80, (msbr & (1 << 5)) != 0);                /* Copy of the 5-th bit */
-  set_hf(z80, (msba & 0x0F) + (msbb & 0x0F) == 0x10); /* Carry from the 3-rd bit */
-  set_xf(z80, (msbr & (1 << 3)) != 0);                /* Copy of the 3-rd bit */
-  set_nf(z80, 0);                                     /* Add = 1/Subtract = 0 */
-  set_cf(z80, msbr < msba || msbr < msbb);            /* Is overflowed */
+  set_yf(z80, bit(res, 13));
+  set_hf(z80, u16_byte_carry(a, b));
+  set_xf(z80, bit(res, 11));
+  set_nf(z80, 0); /* Add = 0/Subtract = 1 */
+  set_cf(z80, u16_overflow(a, b));
   return res;
 }
 
