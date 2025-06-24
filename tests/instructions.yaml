@@ -1,8 +1,15 @@
 # Format:
-#   - source: <asm code>
+#   - desc: <description>
+#     source: <asm code>
+#     # Test is disabled if skip field is present.
+#     [skip: <reason>]
 #     regs:
 #       # Registers not mentioned in regs tested to be 0x00.
 #       <register-name>: <int>
+#     # Optional address -> value mapping. Tests only addresses from
+#     # the mapping, conversely to regs mapping.
+#     [mem:
+#       <addr>: <int>]
 
 tests:
   - desc: ld a, n
@@ -19,6 +26,15 @@ tests:
     regs:
       b: 0x10
       pc: 0x0003
+  - desc: ld r, r'
+    source: |
+      ld a, 0x10
+      ld b, a
+      halt
+    regs:
+      a: 0x10
+      b: 0x10
+      pc: 0x0004
   - desc: ld bc, nn
     source: |
       ld bc, 0x1020
@@ -27,6 +43,17 @@ tests:
       b: 0x10
       c: 0x20
       pc: 0x0004
+  - desc: ld (hl), n
+    source: |
+      ld hl, 0x0010
+      ld (hl), 0xaa
+      halt
+    regs:
+      h: 0x00
+      l: 0x10
+      pc: 0x0006
+    mem:
+      0x10: 0xaa
   - desc: inc a
     source: |
       inc a
