@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
 
   while (!z80e_get_halt(&z80)) {
     if (z80e_instruction(&z80) == Z80E_INVALID_OPCODE) {
-      fprintf(stderr, "invalid instruction opcode");
+      fprintf(stderr, "at 0x%04x: invalid instruction opcode\n", z80.reg.pc);
       fclose(memfile);
       fclose(iofile);
       return EXIT_FAILURE;
