@@ -57,9 +57,15 @@ static inline void set_pof(z80e* z80, u8 v) { set_f(z80, v, 2); }
 static inline void set_nf(z80e* z80, u8 v) { set_f(z80, v, 1); }
 static inline void set_cf(z80e* z80, u8 v) { set_f(z80, v, 0); }
 
+static inline void set_yf_u8(z80e* z80, u8 v) { set_yf(z80, bit(v, 5)); }
+static inline void set_xf_u8(z80e* z80, u8 v) { set_xf(z80, bit(v, 3)); }
+static inline void set_yf_u16(z80e* z80, u16 v) { set_yf(z80, bit(v, 13)); }
+static inline void set_xf_u16(z80e* z80, u16 v) { set_xf(z80, bit(v, 11)); }
+
 inline static int u8_overflow(u8 a, u8 b) { return b > 0 && a > 0xff - b; }
 inline static int u16_overflow(u16 a, u16 b) { return b > 0 && a > 0xffff - b; }
 inline static int u8_half_carry(u8 a, u8 b) { return ((a & 0x0f) + (b & 0x0f)) > 0x0f; }
+inline static int u8_half_borrow(u8 a, u8 b) { return (a & 0x0f) < (b & 0x0f); }
 inline static int u16_byte_carry(u16 a, u16 b) { return ((a & 0x00ff) + (b & 0x00ff)) > 0x00ff; }
 inline static int u8_negative(u8 i) { return bit(i, 7); }
 
@@ -129,6 +135,8 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
     return 7;
   case 0x03: /* inc bc */
     set_bc(z80, bc(z80) + 1);
+    set_yf_u16(z80, bc(z80));
+    set_xf_u16(z80, bc(z80));
     return 6;
   case 0x04: /* inc b */
     return inc8(z80, &reg(b));
@@ -161,6 +169,8 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
     return 7;
   case 0x0b: /* dec bc */
     set_bc(z80, bc(z80) - 1);
+    set_yf_u16(z80, bc(z80));
+    set_xf_u16(z80, bc(z80));
     return 6;
   case 0x0c: /* inc c */
     return inc8(z80, &reg(c));
@@ -222,9 +232,8 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
     reg(e) = read_byte(z80);
     return 7;
   case 0x1f: /* rra */
-    tmp8 = (reg(a) & 0x01) != 0;
-    reg(a) = (cf(z80) & 0x80) | (reg(a) >> 1);
-    set_cf(z80, tmp8);
+    set_cf(z80, bit(reg(a), 0));
+    reg(a) = (cf(z80) << 7) | (reg(a) >> 1);
     set_nf(z80, 0);
     set_hf(z80, 0);
     set_yf(z80, bit(reg(a), 5));
@@ -609,13 +618,12 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
 }
 
 static u8 dec8(z80e* z80, u8* reg) {
-  set_hf(z80, (*reg & (1 << 3)) == 0); /* Will borrow from 3-rd bit */
-  set_pof(z80, *reg == 0x80);          /* P/V is set if m was 80h before operation */
+  set_hf(z80, u8_half_borrow(*reg, 1));
+  set_pof(z80, *reg == 0x80); /* P/V is set if m was 80h before operation */
   *reg -= 1;
-  set_sf(z80, (*reg & 0x80) != 0); /* Is negative */
-  set_zf(z80, *reg == 0);          /* Is zero */
-  set_nf(z80, 1);                  /* Add = 0/Subtract = 1 */
-  set_cf(z80, 0);                  /* Carry unaffected */
+  set_sf(z80, u8_negative(*reg));
+  set_zf(z80, *reg == 0);
+  set_nf(z80, 1); /* Add = 0/Subtract = 1 */
   set_yf(z80, bit(*reg, 5));
   set_xf(z80, bit(*reg, 3));
   return 4;
@@ -707,7 +715,6 @@ static u8 is_even_parity(u8 v) {
 static u8 jr(z80e* z80, u8 cond) {
   if (cond) {
     z80->reg.pc += read_byte(z80);
-    z80->reg.pc -= 1;
     return 12;
   }
   z80->reg.pc += 1;

@@ -12,6 +12,13 @@
 #       <addr>: <int>]
 
 tests:
+  - desc: nop
+    source: |
+      nop
+      nop
+      halt
+    regs:
+      pc: 0x0003
   - desc: ld a, n
     source: |
       ld a, 0x10
@@ -61,15 +68,33 @@ tests:
     regs:
       a: 0x01
       pc: 0x0002
-  - desc: inc b - overflow
+  - desc: inc a - half-carry
     source: |
-      ld b, 0xff
-      inc b
+      ld a, 0x0f
+      inc a
       halt
     regs:
-      b: 0x00
+      a: 0x10
+      f: 0x10
+      pc: 0x0004
+  - desc: inc a - overflow
+    source: |
+      ld a, 0xff
+      inc a
+      halt
+    regs:
+      a: 0x00
       pc: 0x0004
       f: 0x55
+  - desc: dec a
+    source: |
+      ld a, 0x10
+      dec a
+      halt
+    regs:
+      a: 0x0f
+      f: 0x1a
+      pc: 0x0004
   - desc: dec a - overflow
     source: |
       ld a, 0x00
@@ -130,3 +155,175 @@ tests:
       l: 0x00
       f: 0x11
       pc: 0x0008
+  - desc: inc bc
+    source: |
+      ld bc, 0x0010
+      inc bc
+      halt
+    regs:
+      b: 0x00
+      c: 0x11
+      f: 0x00
+      pc: 0x0005
+  - desc: inc bc - overflow
+    source: |
+      ld bc, 0xffff
+      inc bc
+      halt
+    regs:
+      b: 0x00
+      c: 0x00
+      f: 0x00
+      pc: 0x0005
+  - desc: inc bc - yf and xf
+    source: |
+      ld bc, 0x2800
+      inc bc
+      halt
+    regs:
+      b: 0x28
+      c: 0x01
+      f: 0x28
+      pc: 0x0005
+  - desc: dec b
+    source: |
+      ld b, 0x02
+      dec b
+      halt
+    regs:
+      b: 0x01
+      f: 0x02
+      pc: 0x0004
+  - desc: dec b - overflow
+    source: |
+      ld b, 0x00
+      dec b
+      halt
+    regs:
+      b: 0xff
+      f: 0xba
+      pc: 0x0004
+  - desc: dec b - p/v flag
+    source: |
+      ld b, 0x80
+      dec b
+      halt
+    regs:
+      b: 0x7f
+      f: 0x3e
+      pc: 0x0004
+  - desc: dec bc
+    source: |
+      ld bc, 0x1010
+      dec bc
+      halt
+    regs:
+      b: 0x10
+      c: 0x0f
+      f: 0x00
+      pc: 0x0005
+  - desc: dec bc - yf and xf
+    source: |
+      ld bc, 0x2810
+      dec bc
+      halt
+    regs:
+      b: 0x28
+      c: 0x0f
+      f: 0x28
+      pc: 0x0005
+  - desc: dec bc - overflow
+    source: |
+      ld bc, 0x0000
+      dec bc
+      halt
+    regs:
+      b: 0xff
+      c: 0xff
+      f: 0x28
+      pc: 0x0005
+  - desc: "djnz d - condition false"
+    source: |
+      ld b, 0x01
+      djnz 0x10
+      halt
+    regs:
+      pc: 0x0005
+  - desc: "djnz d - condition true"
+    source: |
+      .org 0x0000
+          ; Decrement B register and perform the jump if B != 0.
+          ld b, 0x02
+          ; Asm decreases d by 2 bytes:
+          ;    d = 0x10 - 2 = 0x0e
+          ; PC before the jump:
+          ;    pc = 2 + 2 = 0x0004 (ld b, n + djnz d)
+          ; PC after the jump:
+          ;    pc = 0x0004 + d = 0x0004 + 0x0e = 0x0012
+          ; PC after executing halt:
+          ;    pc = 0x0012 + 1 = 0x0013
+          djnz 0x10 ; In LST format 0x10 is replaced by 0x08.
+      .org 0x0012
+          halt
+    regs:
+      b: 0x01
+      pc: 0x0013
+  - desc: rla
+    source: |
+      ld a, 0x88
+      rla
+      halt
+    regs:
+      a: 0x10
+      f: 0x01
+      pc: 0x0004
+  - desc: "rla - CF -> bit 0"
+    source: |
+      ld a, 0x88
+      rla  ; a = 0x10, cf = 1
+      rla  ; a = 0x21, cf = 0
+      halt
+    regs:
+      a: 0x21
+      f: 0x20
+      pc: 0x0005
+  - desc: rra
+    source: |
+      ld a, 0x88
+      rra
+      halt
+    regs:
+      a: 0x44
+      f: 0x00
+      pc: 0x0004
+  - desc: "rra - CF -> bit 7"
+    source: |
+      ld a, 0x22
+      rra  ; c = 0, a = 0x11
+      rra  ; c = 1, a = 0x88
+      halt
+    regs:
+      a: 0x88
+      f: 0x09
+      pc: 0x0005
+  - desc: "jr nz, d - condition false"
+    source: |
+      ld a, 0x01
+      dec a
+      jr nz, 0x10
+      halt
+    regs:
+      a: 0x00
+      f: 0x42
+      pc: 0x0006
+  - desc: "jr nz, d - condition true"
+    source: |
+      .org 0x0000
+          ld a, 0x00
+          inc a  ; a = 0x01, this makes ZF = 0
+          jr nz, 0x10
+      .org 0x0013
+          halt
+    regs:
+      a: 0x01
+      pc: 0x0014
