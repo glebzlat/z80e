@@ -6,6 +6,7 @@ import yaml
 
 from io import StringIO, BytesIO
 from pathlib import Path
+from typing import Optional
 
 from z80asm import Z80AsmParser, Z80AsmLayouter, Z80AsmCompiler
 
@@ -71,6 +72,14 @@ def run_test_program(path: Path, memory: bytes, io: bytes) -> dict[str, int]:
     return parse_reg_dump(dump)
 
 
+def try_find_desc_line(desc: str) -> Optional[int]:
+    with open(INSTRUCTIONS, "r") as fin:
+        for i, line in enumerate(fin, 1):
+            if desc in line:
+                return i
+    return None
+
+
 class InstructionTestMeta(type):
 
     def __new__(cls, name, bases, attrs):
@@ -95,7 +104,11 @@ class InstructionTestMeta(type):
                     result_registers = run_test_program(PROG, encoded, b"")
                     self.compare_registers(result_registers, registers)
                 except AssertionError as e:
-                    raise AssertionError(e) from None
+                    desc = test["desc"]
+                    lineno = try_find_desc_line(desc)
+                    lineno = f"{lineno}:" if lineno is not None else ""
+                    msg = f"{INSTRUCTIONS}:{lineno} test {desc!r} failed: {e}"
+                    raise AssertionError(msg) from None
 
             fn_name = f"test_instruction_{i}"
             test_fn.__name__ = fn_name

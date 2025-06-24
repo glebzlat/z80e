@@ -5,32 +5,37 @@
 #       <register-name>: <int>
 
 tests:
-  - source: |
+  - desc: ld a, n
+    source: |
       ld a, 0x10
       halt
     regs:
       a: 0x10
       pc: 0x0003
-  - source: |
+  - desc: ld b, n
+    source: |
       ld b, 0x10
       halt
     regs:
       b: 0x10
       pc: 0x0003
-  - source: |
+  - desc: ld bc, nn
+    source: |
       ld bc, 0x1020
       halt
     regs:
       b: 0x10
       c: 0x20
       pc: 0x0004
-  - source: |
+  - desc: inc a
+    source: |
       inc a
       halt
     regs:
       a: 0x01
       pc: 0x0002
-  - source: |
+  - desc: inc b - overflow
+    source: |
       ld b, 0xff
       inc b
       halt
@@ -38,7 +43,8 @@ tests:
       b: 0x00
       pc: 0x0004
       f: 0x55
-  - source: |
+  - desc: dec a - overflow
+    source: |
       ld a, 0x00
       dec a
       halt
@@ -46,3 +52,54 @@ tests:
       a: 0xff
       pc: 0x0004
       f: 0xba
+  - desc: rlca
+    source: |
+      ld a, 0x88
+      rlca
+      halt
+    regs:
+      a: 0x11
+      f: 0x01
+      pc: 0x0004
+  - desc: ex af
+    source: |
+      ld a, 0x80
+      rlca
+      ex af
+      ld a, 0xff
+      inc a
+      halt
+    regs:
+      a: 0x00
+      f: 0x55
+      a_alt: 0x01
+      f_alt: 0x01
+      pc: 0x0008
+  - desc: add hl, bc
+    source: |
+      ld b, 0x10
+      ld c, 0x20
+      ld h, 0x30
+      ld l, 0x40
+      add hl, bc
+      halt
+    regs:
+      b: 0x10
+      c: 0x20
+      h: 0x40
+      l: 0x60
+      f: 0x00
+      pc: 0x000a
+  - desc: add hl, bc - overflow
+    source: |
+      ld bc, 0xffff
+      ld hl, 0x0001
+      add hl, bc
+      halt
+    regs:
+      b: 0xff
+      c: 0xff
+      h: 0x00
+      l: 0x00
+      f: 0x11
+      pc: 0x0008
