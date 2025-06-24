@@ -58,7 +58,12 @@ int main(int argc, char* argv[]) {
   z80e_init(&z80, &cfg);
 
   while (!z80e_get_halt(&z80)) {
-    z80e_instruction(&z80);
+    if (z80e_instruction(&z80) == Z80E_INVALID_OPCODE) {
+      fprintf(stderr, "invalid instruction opcode");
+      fclose(memfile);
+      fclose(iofile);
+      return EXIT_FAILURE;
+    }
   }
 
   register_dump(&z80);
