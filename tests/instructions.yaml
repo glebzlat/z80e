@@ -327,3 +327,35 @@ tests:
     regs:
       a: 0x01
       pc: 0x0014
+  - desc: "daa - a = 0x00 in (0x00, 0x99), HNC = 000, add 0x00"
+    source: |
+      ld a, 0x00
+      daa
+      halt
+    regs:
+      a: 0x00
+      pc: 0x0004
+  - desc: "daa - a = 0x99 in (0x00, 0x99), HNC = 000, add 0x00"
+    source: |
+      ld a, 0x99
+      daa
+      halt
+    regs:
+      a: 0x99
+      pc: 0x0004
+  - desc: "daa - a = 0x0a in (0x0a, 0x9f), HNC = 000, add 0x06"
+    source: |
+      ld a, 0x0a
+      daa
+      halt
+    regs:
+      a: 0x10
+      pc: 0x0004
+  - desc: "daa - a = 0x9f in (0x0a, 0x9f), HNC = 000, add 0x06"
+    source: |
+      ld a, 0x9f
+      daa
+      halt
+    regs:
+      a: 0xa5
+      pc: 0x0004
