@@ -125,26 +125,209 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
   u8 tmp8;
 
   switch (opcode) {
-  case 0x00: /* nop */
-    return 4;
-  case 0x01: /* ld bc, nn */
-    set_bc(z80, read_word(z80));
-    return 10;
-  case 0x02: /* ld bc, a */
-    set_bc(z80, reg(a));
-    return 7;
+    /* clang-format off */
+  case 0x78: reg(a) = reg(b); return 4; /* ld a, b */
+  case 0x79: reg(a) = reg(c); return 4; /* ld a, c */
+  case 0x7a: reg(a) = reg(d); return 4; /* ld a, d */
+  case 0x7b: reg(a) = reg(e); return 4; /* ld a, e */
+  case 0x7c: reg(a) = reg(h); return 4; /* ld a, h */
+  case 0x7d: reg(a) = reg(l); return 4; /* ld a, l */
+  case 0x7f: reg(a) = reg(a); return 4; /* ld a, a */
+  case 0x3e: reg(a) = read_byte(z80); return 7; /* ld a, n */
+  case 0x7e: reg(a) = read_byte_at(z80, hl(z80)); return 7; /* ld a, (hl) */
+  case 0x0a: reg(a) = read_byte_at(z80, bc(z80)); return 7; /* ld a, (bc) */
+  case 0x1a: reg(a) = read_byte_at(z80, de(z80)); return 7; /* ld a, (de) */
+  case 0x3a: reg(a) = read_byte_at(z80, read_word(z80)); return 13; /* ld a, (nn) */
+
+  case 0x40: reg(b) = reg(b); return 4; /* ld b, b */
+  case 0x41: reg(b) = reg(c); return 4; /* ld b, c */
+  case 0x42: reg(b) = reg(d); return 4; /* ld b, d */
+  case 0x43: reg(b) = reg(e); return 4; /* ld b, e */
+  case 0x44: reg(b) = reg(h); return 4; /* ld b, h */
+  case 0x45: reg(b) = reg(l); return 4; /* ld b, l */
+  case 0x47: reg(b) = reg(a); return 4; /* ld b, a */
+  case 0x06: reg(b) = read_byte(z80); return 7; /* ld b, n */
+  case 0x46: reg(b) = read_byte_at(z80, hl(z80)); return 7; /* ld b, (hl) */
+
+  case 0x48: reg(c) = reg(b); return 4; /* ld c, b */
+  case 0x49: reg(c) = reg(c); return 4; /* ld c, c */
+  case 0x4a: reg(c) = reg(d); return 4; /* ld c, d */
+  case 0x4b: reg(c) = reg(e); return 4; /* ld c, e */
+  case 0x4c: reg(c) = reg(h); return 4; /* ld c, h */
+  case 0x4d: reg(c) = reg(l); return 4; /* ld c, l */
+  case 0x4f: reg(c) = reg(a); return 4; /* ld c, a */
+  case 0x0e: reg(c) = read_byte(z80); return 7; /* ld c, n */
+  case 0x4e: reg(c) = read_byte_at(z80, hl(z80)); return 7; /* ld c, (hl) */
+
+  case 0x50: reg(d) = reg(b); return 4; /* ld d, b */
+  case 0x51: reg(d) = reg(c); return 4; /* ld d, c */
+  case 0x52: reg(d) = reg(d); return 4; /* ld d, d */
+  case 0x53: reg(d) = reg(e); return 4; /* ld d, e */
+  case 0x54: reg(d) = reg(h); return 4; /* ld d, h */
+  case 0x55: reg(d) = reg(l); return 4; /* ld d, l */
+  case 0x57: reg(d) = reg(a); return 4; /* ld d, a */
+  case 0x16: reg(d) = read_byte(z80); return 7; /* ld d, n */
+  case 0x56: reg(d) = read_byte_at(z80, hl(z80)); return 7; /* ld d, (hl) */
+
+  case 0x58: reg(e) = reg(b); return 4; /* ld e, b */
+  case 0x59: reg(e) = reg(c); return 4; /* ld e, c */
+  case 0x5a: reg(e) = reg(d); return 4; /* ld e, d */
+  case 0x5b: reg(e) = reg(e); return 4; /* ld e, e */
+  case 0x5c: reg(e) = reg(h); return 4; /* ld e, h */
+  case 0x5d: reg(e) = reg(l); return 4; /* ld e, l */
+  case 0x5f: reg(e) = reg(a); return 4; /* ld e, a */
+  case 0x1e: reg(e) = read_byte(z80); return 7; /* ld e, n */
+  case 0x5e: reg(e) = read_byte_at(z80, hl(z80)); return 6; /* ld e, (hl) */
+
+  case 0x60: reg(h) = reg(b); return 4; /* ld h, b */
+  case 0x61: reg(h) = reg(c); return 4; /* ld h, c */
+  case 0x62: reg(h) = reg(d); return 4; /* ld h, d */
+  case 0x63: reg(h) = reg(e); return 4; /* ld h, e */
+  case 0x64: reg(h) = reg(h); return 4; /* ld h, h */
+  case 0x65: reg(h) = reg(l); return 4; /* ld h, l */
+  case 0x67: reg(h) = reg(a); return 4; /* ld h, a */
+  case 0x26: reg(h) = read_byte(z80); return 7; /* ld h, n */
+  case 0x66: reg(h) = read_byte_at(z80, hl(z80)); return 7; /* ld h, (hl) */
+
+  case 0x68: reg(l) = reg(b); return 4; /* ld l, b */
+  case 0x69: reg(l) = reg(c); return 4; /* ld l, c */
+  case 0x6a: reg(l) = reg(d); return 4; /* ld l, d */
+  case 0x6b: reg(l) = reg(e); return 4; /* ld l, e */
+  case 0x6c: reg(l) = reg(h); return 4; /* ld l, h */
+  case 0x6d: reg(l) = reg(l); return 4; /* ld l, l */
+  case 0x6f: reg(l) = reg(a); return 4; /* ld l, a */
+  case 0x2e: reg(l) = read_byte(z80); return 7; /* ld l, n */
+  case 0x6e: reg(l) = read_byte_at(z80, hl(z80)); return 6; /* ld l, (hl) */
+
+  case 0x70: write_byte_at(z80, reg(b), hl(z80)); return 7; /* ld (hl), b */
+  case 0x71: write_byte_at(z80, reg(c), hl(z80)); return 7; /* ld (hl), c */
+  case 0x72: write_byte_at(z80, reg(d), hl(z80)); return 7; /* ld (hl), d */
+  case 0x73: write_byte_at(z80, reg(e), hl(z80)); return 7; /* ld (hl), e */
+  case 0x74: write_byte_at(z80, reg(h), hl(z80)); return 7; /* ld (hl), h */
+  case 0x75: write_byte_at(z80, reg(l), hl(z80)); return 7; /* ld (hl), l */
+  case 0x77: write_byte_at(z80, reg(a), hl(z80)); return 7; /* ld (hl), a */
+  case 0x36: write_byte_at(z80, read_byte(z80), hl(z80)); return 10; /* ld (hl), n */
+
+  case 0x32: write_byte_at(z80, reg(a), read_word(z80)); return 13; /* ld (nn), a */
+
+  case 0x12: write_byte_at(z80, reg(a), de(z80)); return 7; /* ld (de), a */
+
+  case 0x2a: set_hl(z80, read_word_at(z80, read_word(z80))); return 16; /* ld hl, (nn) */
+  case 0x21: set_hl(z80, read_word(z80)); return 10; /* ld hl, nn */
+
+  case 0x02: set_bc(z80, reg(a)); return 7; /* ld bc, a */
+  case 0x01: set_bc(z80, read_word(z80)); return 10; /* ld bc, nn */
+  case 0x11: set_de(z80, read_word(z80)); return 10; /* ld de, nn */
+  case 0x31: z80->reg.sp = read_word(z80); return 10; /* ld sp, nn */
+
+  case 0x22: write_word(z80, hl(z80)); return 16; /* ld (nn), hl */
+
+  case 0x04: return inc8(z80, &reg(b)); /* inc b */
+  case 0x0c: return inc8(z80, &reg(c)); /* inc c */
+  case 0x14: return inc8(z80, &reg(d)); /* inc d */
+  case 0x1c: return inc8(z80, &reg(e)); /* inc e */
+  case 0x24: return inc8(z80, &reg(h)); /* inc h */
+  case 0x2c: return inc8(z80, &reg(l)); /* inc l */
+  case 0x3c: return inc8(z80, &reg(a)); /* inc a */
+
+  case 0x05: return dec8(z80, &reg(b)); /* dec b */
+  case 0x0d: return dec8(z80, &reg(c)); /* dec c */
+  case 0x15: return dec8(z80, &reg(d)); /* dec d */
+  case 0x1d: return dec8(z80, &reg(e)); /* dec e */
+  case 0x25: return dec8(z80, &reg(h)); /* dec h */
+  case 0x2d: return dec8(z80, &reg(l)); /* dec l */
+  case 0x3d: return dec8(z80, &reg(a)); /* dec a */
+
+  case 0x33: z80->reg.sp += 1; return 6; /* inc sp */
+  case 0x23: set_hl(z80, hl(z80) + 1); return 6; /* inc hl */
+  case 0x13: set_de(z80, de(z80) + 1); return 6; /* inc de */
+
+  case 0x3b: z80->reg.sp -= 1; return 6; /* dec sp */
+  case 0x2b: set_hl(z80, hl(z80) - 1); return 6; /* dec hl */
+  case 0x1b: set_de(z80, de(z80) - 1); return 6; /* dec de */
+
+  case 0x80: return add8(z80, reg(b)); /* add a, b */
+  case 0x81: return add8(z80, reg(c)); /* add a, c */
+  case 0x82: return add8(z80, reg(d)); /* add a, d */
+  case 0x83: return add8(z80, reg(e)); /* add a, e */
+  case 0x84: return add8(z80, reg(h)); /* add a, h */
+  case 0x85: return add8(z80, reg(l)); /* add a, l */
+  case 0x87: return add8(z80, reg(a)); /* add a, a */
+  case 0x86: return add8(z80, read_byte_at(z80, hl(z80))) + 3; /* add a, (hl) */
+
+  case 0x88: return add8(z80, reg(b) + cf(z80)); /* adc a, b */
+  case 0x89: return add8(z80, reg(c) + cf(z80)); /* adc a, c */
+  case 0x8a: return add8(z80, reg(d) + cf(z80)); /* adc a, d */
+  case 0x8b: return add8(z80, reg(e) + cf(z80)); /* adc a, e */
+  case 0x8c: return add8(z80, reg(h) + cf(z80)); /* adc a, h */
+  case 0x8d: return add8(z80, reg(l) + cf(z80)); /* adc a, l */
+  case 0x8f: return add8(z80, reg(a) + cf(z80)); /* adc a, a */
+  case 0x8e: return add8(z80, read_byte_at(z80, hl(z80)) + cf(z80)); /* adc a, (hl) */
+
+  case 0x90: return sub8(z80, reg(b)); /* sub b */
+  case 0x91: return sub8(z80, reg(c)); /* sub c */
+  case 0x92: return sub8(z80, reg(d)); /* sub d */
+  case 0x93: return sub8(z80, reg(e)); /* sub e */
+  case 0x94: return sub8(z80, reg(h)); /* sub h */
+  case 0x95: return sub8(z80, reg(l)); /* sub l */
+  case 0x96: return sub8(z80, read_byte_at(z80, hl(z80))) + 3; /* sub (hl) */
+
+  case 0x97: return sub8(z80, reg(a)); /* sub a */
+  case 0x98: return sub8(z80, reg(b) + cf(z80)); /* sbc a, b */
+  case 0x99: return sub8(z80, reg(c) + cf(z80)); /* sbc a, c */
+  case 0x9a: return sub8(z80, reg(d) + cf(z80)); /* sbc a, d */
+  case 0x9b: return sub8(z80, reg(e) + cf(z80)); /* sbc a, e */
+  case 0x9c: return sub8(z80, reg(h) + cf(z80)); /* sbc a, h */
+  case 0x9d: return sub8(z80, reg(l) + cf(z80)); /* sbc a, l */
+  case 0x9f: return sub8(z80, reg(a) + cf(z80)); /* sbc a, a */
+  case 0x9e: return sub8(z80, read_byte_at(z80, hl(z80)) + cf(z80)) + 3; /* sbc a, (hl) */
+
+  case 0xa0: return and8(z80, reg(b)); /* and b */
+  case 0xa1: return and8(z80, reg(c)); /* and c */
+  case 0xa2: return and8(z80, reg(d)); /* and d */
+  case 0xa3: return and8(z80, reg(e)); /* and e */
+  case 0xa4: return and8(z80, reg(h)); /* and h */
+  case 0xa5: return and8(z80, reg(l)); /* and l */
+  case 0xa7: return and8(z80, reg(a)); /* and a */
+  case 0xa6: return and8(z80, read_byte_at(z80, hl(z80))) + 3; /* and (hl) */
+
+  case 0xa8: return xor8(z80, reg(b)); /* xor b */
+  case 0xa9: return xor8(z80, reg(c)); /* xor c */
+  case 0xaa: return xor8(z80, reg(d)); /* xor d */
+  case 0xab: return xor8(z80, reg(e)); /* xor e */
+  case 0xac: return xor8(z80, reg(h)); /* xor h */
+  case 0xad: return xor8(z80, reg(l)); /* xor l */
+  case 0xaf: return xor8(z80, reg(a)); /* xor a */
+  case 0xae: return xor8(z80, read_byte_at(z80, hl(z80))) + 3; /* xor (hl) */
+
+  case 0x29: set_hl(z80, add16(z80, hl(z80), hl(z80))); return 11; /* add hl, hl */
+  case 0x39: set_hl(z80, add16(z80, hl(z80), z80->reg.sp)); return 11; /* add hl, sp */
+  case 0x19: set_hl(z80, add16(z80, hl(z80), de(z80))); return 11; /* add hl, de */
+  case 0x09: set_hl(z80, add16(z80, hl(z80), bc(z80))); return 11; /* add hl, bc */
+
+  case 0x10: reg(b) = reg(b) - 1; return jr(z80, reg(b) != 0) + 1; /* djnz d */
+  case 0x18: return jr(z80, 1); /* jr d */
+  case 0x28: return jr(z80, zf(z80)); /* jr z, d */
+  case 0x20: return jr(z80, !zf(z80)); /* jr nz, d */
+  case 0x38: return jr(z80, cf(z80)); /* jr c, d */
+  case 0x30: return jr(z80, !cf(z80)); /* jr nc, d */
+
+  case 0x27: daa(z80); return 4; /* daa */
+  case 0x2f: reg(a) = ~reg(a); return 4; /* cpl */
+
+  case 0x3f: set_cf(z80, !cf(z80)); return 4; /* ccf */
+  case 0x37: set_cf(z80, 1); return 4; /* scf */
+  case 0x00: return 4; /* nop */
+  case 0x76: z80->halt = 1; return 4; /* halt */
+
+    /* clang-format on */
+
   case 0x03: /* inc bc */
     set_bc(z80, bc(z80) + 1);
     set_yf_u16(z80, bc(z80));
     set_xf_u16(z80, bc(z80));
     return 6;
-  case 0x04: /* inc b */
-    return inc8(z80, &reg(b));
-  case 0x05: /* dec b */
-    return dec8(z80, &reg(b));
-  case 0x06: /* ld b, n */
-    reg(b) = read_byte(z80);
-    return 7;
+
   case 0x07: /* rlca */
     set_cf(z80, (reg(a) & 0x80) != 0);
     reg(a) = (reg(a) << 1) | cf(z80);
@@ -153,6 +336,14 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
     set_yf(z80, bit(reg(a), 5));
     set_xf(z80, bit(reg(a), 3));
     return 4;
+
+  case 0x0f: /* rrca */
+    set_cf(z80, (reg(a) & 0x01) != 0);
+    set_nf(z80, 0);
+    set_hf(z80, 0);
+    reg(a) = (reg(a) >> 1) | (cf(z80) << 7);
+    return 4;
+
   case 0x08: /* ex af, af' */
     tmp8 = z80->reg.main.a;
     z80->reg.alt.a = z80->reg.main.a;
@@ -161,49 +352,13 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
     z80->reg.alt.f = z80->reg.main.f;
     z80->reg.main.f = tmp8;
     return 4;
-  case 0x09: /* add hl, bc */
-    set_hl(z80, add16(z80, hl(z80), bc(z80)));
-    return 11;
-  case 0x0a: /* ld a, (bc) */
-    reg(a) = read_byte_at(z80, bc(z80));
-    return 7;
+
   case 0x0b: /* dec bc */
     set_bc(z80, bc(z80) - 1);
     set_yf_u16(z80, bc(z80));
     set_xf_u16(z80, bc(z80));
     return 6;
-  case 0x0c: /* inc c */
-    return inc8(z80, &reg(c));
-  case 0x0d: /* dec c */
-    return dec8(z80, &reg(c));
-  case 0x0e: /* ld c, n */
-    reg(c) = read_byte(z80);
-    return 7;
-  case 0x0f: /* rrca */
-    set_cf(z80, (reg(a) & 0x01) != 0);
-    set_nf(z80, 0);
-    set_hf(z80, 0);
-    reg(a) = (reg(a) >> 1) | (cf(z80) << 7);
-    return 4;
-  case 0x10: /* djnz d */
-    reg(b) = reg(b) - 1;
-    return jr(z80, reg(b) != 0) + 1;
-  case 0x11: /* ld de, nn */
-    set_de(z80, read_word(z80));
-    return 10;
-  case 0x12: /* ld (de), a */
-    write_byte_at(z80, reg(a), de(z80));
-    return 7;
-  case 0x13: /* inc de */
-    set_de(z80, de(z80) + 1);
-    return 6;
-  case 0x14: /* inc d */
-    return inc8(z80, &reg(d));
-  case 0x15: /* dec d */
-    return dec8(z80, &reg(d));
-  case 0x16: /* ld d, n */
-    reg(d) = read_byte(z80);
-    return 7;
+
   case 0x17: /* rla */
     tmp8 = (reg(a) & 0x80) != 0;
     reg(a) = (reg(a) << 1) | (cf(z80) & 0x01);
@@ -213,24 +368,7 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
     set_yf(z80, bit(reg(a), 5));
     set_xf(z80, bit(reg(a), 3));
     return 4;
-  case 0x18: /* jr d */
-    return jr(z80, 1);
-  case 0x19: /* add hl, de */
-    set_hl(z80, add16(z80, hl(z80), de(z80)));
-    return 11;
-  case 0x1a: /* ld a, (de) */
-    reg(a) = read_byte_at(z80, de(z80));
-    return 7;
-  case 0x1b: /* dec de */
-    set_de(z80, de(z80) - 1);
-    return 6;
-  case 0x1c: /* inc e */
-    return inc8(z80, &reg(e));
-  case 0x1d: /* dec e */
-    return dec8(z80, &reg(e));
-  case 0x1e: /* ld e, n */
-    reg(e) = read_byte(z80);
-    return 7;
+
   case 0x1f: /* rra */
     set_cf(z80, bit(reg(a), 0));
     reg(a) = (cf(z80) << 7) | (reg(a) >> 1);
@@ -239,379 +377,24 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
     set_yf(z80, bit(reg(a), 5));
     set_xf(z80, bit(reg(a), 3));
     return 4;
-  case 0x20: /* jr nz, d */
-    return jr(z80, !zf(z80));
-  case 0x21: /* ld hl, nn */
-    set_hl(z80, read_word(z80));
-    return 10;
-  case 0x22: /* ld (nn), hl */
-    write_word(z80, hl(z80));
-    return 16;
-  case 0x23: /* inc hl */
-    set_hl(z80, hl(z80) + 1);
-    return 6;
-  case 0x24: /* inc h */
-    return inc8(z80, &reg(h));
-  case 0x25: /* dec h */
-    return dec8(z80, &reg(h));
-  case 0x26: /* ld h, n */
-    reg(h) = read_byte(z80);
-    return 7;
-  case 0x27: /* daa */
-    daa(z80);
-    return 4;
-  case 0x28: /* jr z, d */
-    return jr(z80, zf(z80));
-  case 0x29: /* add hl, hl */
-    set_hl(z80, add16(z80, hl(z80), hl(z80)));
-    return 11;
-  case 0x2a: /* ld hl, (nn) */
-    set_hl(z80, read_word_at(z80, read_word(z80)));
-    return 16;
-  case 0x2b: /* dec hl */
-    set_hl(z80, hl(z80) - 1);
-    return 6;
-  case 0x2c: /* inc l */
-    return inc8(z80, &reg(l));
-  case 0x2d: /* dec l */
-    return dec8(z80, &reg(l));
-  case 0x2e: /* ld l, n */
-    reg(l) = read_byte(z80);
-    return 7;
-  case 0x2f: /* cpl */
-    reg(a) = ~reg(a) + 1;
-    return 4;
-  case 0x30: /* jr nc, d */
-    return jr(z80, !cf(z80));
-  case 0x31: /* ld sp, nn */
-    z80->reg.sp = read_word(z80);
-    return 10;
-  case 0x32: /* ld (nn), a */
-    write_byte_at(z80, reg(a), read_word(z80));
-    return 13;
-  case 0x33: /* inc sp */
-    z80->reg.sp += 1;
-    return 6;
+
   case 0x34: /* inc (hl) */
     tmp8 = read_byte_at(z80, hl(z80));
     inc8(z80, &tmp8);
     write_byte_at(z80, tmp8, hl(z80));
     return 11;
+
   case 0x35: /* dec (hl) */
     tmp8 = read_byte_at(z80, hl(z80));
     inc8(z80, &tmp8);
     write_byte_at(z80, tmp8, hl(z80));
     return 11;
-  case 0x36: /* ld (hl), n */
-    write_byte_at(z80, read_byte(z80), hl(z80));
-    return 10;
-  case 0x37: /* scf */
-    set_cf(z80, 1);
-    return 4;
-  case 0x38: /* jr c, d */
-    return jr(z80, cf(z80));
-  case 0x39: /* add hl, sp */
-    set_hl(z80, add16(z80, hl(z80), z80->reg.sp));
-    return 11;
-  case 0x3a: /* ld a, (nn) */
-    reg(a) = read_byte_at(z80, read_word(z80));
-    return 13;
-  case 0x3b: /* dec sp */
-    z80->reg.sp -= 1;
-    return 6;
-  case 0x3c: /* inc a */
-    return inc8(z80, &reg(a));
-  case 0x3d: /* dec a */
-    return dec8(z80, &reg(a));
-  case 0x3e: /* ld a, n */
-    reg(a) = read_byte(z80);
-    return 7;
-  case 0x3f: /* ccf */
-    set_cf(z80, !cf(z80));
-    return 4;
-  case 0x40: /* ld b, b */
-    return 4;
-  case 0x41: /* ld b, c */
-    reg(b) = reg(c);
-    return 4;
-  case 0x42: /* ld b, d */
-    reg(b) = reg(d);
-    return 4;
-  case 0x43: /* ld b, e */
-    reg(b) = reg(e);
-    return 4;
-  case 0x44: /* ld b, h */
-    reg(b) = reg(h);
-    return 4;
-  case 0x45: /* ld b, l */
-    reg(b) = reg(l);
-    return 4;
-  case 0x46: /* ld b, (hl) */
-    reg(b) = read_byte_at(z80, hl(z80));
-    return 7;
-  case 0x47: /* ld b, a */
-    reg(b) = reg(a);
-    return 4;
-  case 0x48: /* ld c, b */
-    reg(c) = reg(b);
-    return 4;
-  case 0x49: /* ld c, c */
-    return 4;
-  case 0x4a: /* ld c, d */
-    reg(c) = reg(d);
-    return 4;
-  case 0x4b: /* ld c, e */
-    reg(c) = reg(e);
-    return 4;
-  case 0x4c: /* ld c, h */
-    reg(c) = reg(h);
-    return 4;
-  case 0x4d: /* ld c, l */
-    reg(c) = reg(l);
-    return 4;
-  case 0x4e: /* ld c, (hl) */
-    reg(c) = read_byte_at(z80, hl(z80));
-    return 7;
-  case 0x4f: /* ld c, a */
-    reg(c) = reg(a);
-    return 4;
-  case 0x50: /* ld d, b */
-    reg(d) = reg(b);
-    return 4;
-  case 0x51: /* ld d, c */
-    reg(d) = reg(c);
-    return 4;
-  case 0x52: /* ld d, d */
-    return 4;
-  case 0x53: /* ld d, e */
-    reg(d) = reg(e);
-    return 4;
-  case 0x54: /* ld d, h */
-    reg(d) = reg(h);
-    return 4;
-  case 0x55: /* ld d, l */
-    reg(d) = reg(l);
-    return 4;
-  case 0x56: /* ld d, (hl) */
-    reg(d) = read_byte_at(z80, hl(z80));
-    return 7;
-  case 0x57: /* ld d, a */
-    reg(d) = reg(a);
-    return 4;
-  case 0x58: /* ld e, b */
-    reg(e) = reg(b);
-    return 4;
-  case 0x59: /* ld e, c */
-    return 4;
-  case 0x5a: /* ld e, d */
-    reg(e) = reg(d);
-    return 4;
-  case 0x5b: /* ld e, e */
-    return 4;
-  case 0x5c: /* ld e, h */
-    reg(e) = reg(h);
-    return 4;
-  case 0x5d: /* ld e, l */
-    reg(e) = reg(l);
-    return 4;
-  case 0x5e: /* ld e, (hl) */
-    reg(e) = read_byte_at(z80, hl(z80));
-    return 6;
-  case 0x5f: /* ld e, a */
-    reg(e) = reg(a);
-    return 4;
-  case 0x60: /* ld h, b */
-    reg(h) = reg(b);
-    return 4;
-  case 0x61: /* ld h, c */
-    reg(h) = reg(c);
-    return 4;
-  case 0x62: /* ld h, d */
-    reg(h) = reg(d);
-    return 4;
-  case 0x63: /* ld h, e */
-    reg(h) = reg(e);
-    return 4;
-  case 0x64: /* ld h, h */
-    return 4;
-  case 0x65: /* ld h, l */
-    reg(h) = reg(l);
-    return 4;
-  case 0x66: /* ld h, (hl) */
-    reg(h) = read_byte_at(z80, hl(z80));
-    return 7;
-  case 0x67: /* ld h, a */
-    reg(h) = reg(a);
-    return 4;
-  case 0x68: /* ld l, b */
-    reg(l) = reg(b);
-    return 4;
-  case 0x69: /* ld l, c */
-    return 4;
-  case 0x6a: /* ld l, d */
-    reg(l) = reg(d);
-    return 4;
-  case 0x6b: /* ld l, e */
-    reg(l) = reg(e);
-    return 4;
-  case 0x6c: /* ld l, h */
-    reg(l) = reg(h);
-    return 4;
-  case 0x6d: /* ld l, l */
-    return 4;
-  case 0x6e: /* ld l, (hl) */
-    reg(l) = read_byte_at(z80, hl(z80));
-    return 6;
-  case 0x6f: /* ld l, a */
-    reg(l) = reg(a);
-    return 4;
-  case 0x70: /* ld (hl), b */
-    write_byte_at(z80, reg(b), hl(z80));
-    return 7;
-  case 0x71: /* ld (hl), c */
-    write_byte_at(z80, reg(c), hl(z80));
-    return 7;
-  case 0x72: /* ld (hl), d */
-    write_byte_at(z80, reg(d), hl(z80));
-    return 7;
-  case 0x73: /* ld (hl), e */
-    write_byte_at(z80, reg(e), hl(z80));
-    return 7;
-  case 0x74: /* ld (hl), h */
-    write_byte_at(z80, reg(h), hl(z80));
-    return 7;
-  case 0x75: /* ld (hl), l */
-    write_byte_at(z80, reg(l), hl(z80));
-    return 7;
-  case 0x76: /* halt */
-    z80->halt = 1;
-    return 4;
-  case 0x77: /* ld (hl), a */
-    write_byte_at(z80, reg(a), hl(z80));
-    return 7;
-  case 0x78: /* ld a, b */
-    reg(a) = reg(b);
-    return 4;
-  case 0x79: /* ld a, c */
-    reg(a) = reg(c);
-    return 4;
-  case 0x7a: /* ld a, d */
-    reg(a) = reg(d);
-    return 4;
-  case 0x7b: /* ld a, e */
-    reg(a) = reg(e);
-    return 4;
-  case 0x7c: /* ld a, h */
-    reg(a) = reg(h);
-    return 4;
-  case 0x7d: /* ld a, l */
-    reg(a) = reg(l);
-    return 4;
-  case 0x7e: /* ld a, (hl) */
-    reg(a) = read_byte_at(z80, hl(z80));
-    return 7;
-  case 0x7f: /* ld a, a */
-    return 4;
-  case 0x80: /* add a, b */
-    return add8(z80, reg(b));
-  case 0x81: /* add a, c */
-    return add8(z80, reg(c));
-  case 0x82: /* add a, d */
-    return add8(z80, reg(d));
-  case 0x83: /* add a, e */
-    return add8(z80, reg(e));
-  case 0x84: /* add a, h */
-    return add8(z80, reg(h));
-  case 0x85: /* add a, l */
-    return add8(z80, reg(l));
-  case 0x86: /* add a, (hl) */
-    return add8(z80, read_byte_at(z80, hl(z80))) + 3;
-  case 0x87: /* add a, a */
-    return add8(z80, reg(a));
-  case 0x88: /* adc a, b */
-    return add8(z80, reg(b) + cf(z80));
-  case 0x89: /* adc a, c */
-    return add8(z80, reg(c) + cf(z80));
-  case 0x8a: /* adc a, d */
-    return add8(z80, reg(d) + cf(z80));
-  case 0x8b: /* adc a, e */
-    return add8(z80, reg(e) + cf(z80));
-  case 0x8c: /* adc a, h */
-    return add8(z80, reg(h) + cf(z80));
-  case 0x8d: /* adc a, l */
-    return add8(z80, reg(l) + cf(z80));
-  case 0x8e: /* adc a, (hl) */
-    return add8(z80, read_byte_at(z80, hl(z80)) + cf(z80));
-  case 0x8f: /* adc a, a */
-    return add8(z80, reg(a) + cf(z80));
-  case 0x90: /* sub b */
-    return sub8(z80, reg(b));
-  case 0x91: /* sub c */
-    return sub8(z80, reg(c));
-  case 0x92: /* sub d */
-    return sub8(z80, reg(d));
-  case 0x93: /* sub e */
-    return sub8(z80, reg(e));
-  case 0x94: /* sub h */
-    return sub8(z80, reg(h));
-  case 0x95: /* sub l */
-    return sub8(z80, reg(l));
-  case 0x96: /* sub (hl) */
-    return sub8(z80, read_byte_at(z80, hl(z80))) + 3;
-  case 0x97: /* sub a */
-    return sub8(z80, reg(a));
-  case 0x98: /* sbc a, b */
-    return sub8(z80, reg(b) + cf(z80));
-  case 0x99: /* sbc a, c */
-    return sub8(z80, reg(c) + cf(z80));
-  case 0x9a: /* sbc a, d */
-    return sub8(z80, reg(d) + cf(z80));
-  case 0x9b: /* sbc a, e */
-    return sub8(z80, reg(e) + cf(z80));
-  case 0x9c: /* sbc a, h */
-    return sub8(z80, reg(h) + cf(z80));
-  case 0x9d: /* sbc a, l */
-    return sub8(z80, reg(l) + cf(z80));
-  case 0x9e: /* sbc a, (hl) */
-    return sub8(z80, read_byte_at(z80, hl(z80)) + cf(z80)) + 3;
-  case 0x9f: /* sbc a, a */
-    return sub8(z80, reg(a) + cf(z80));
-  case 0xa0: /* and b */
-    return and8(z80, reg(b));
-  case 0xa1: /* and c */
-    return and8(z80, reg(c));
-  case 0xa2: /* and d */
-    return and8(z80, reg(d));
-  case 0xa3: /* and e */
-    return and8(z80, reg(e));
-  case 0xa4: /* and h */
-    return and8(z80, reg(h));
-  case 0xa5: /* and l */
-    return and8(z80, reg(l));
-  case 0xa6: /* and (hl) */
-    return and8(z80, read_byte_at(z80, hl(z80))) + 3;
-  case 0xa7: /* and a */
-    return and8(z80, reg(a));
-  case 0xa8: /* xor b */
-    return xor8(z80, reg(b));
-  case 0xa9: /* xor c */
-    return xor8(z80, reg(c));
-  case 0xaa: /* xor d */
-    return xor8(z80, reg(d));
-  case 0xab: /* xor e */
-    return xor8(z80, reg(e));
-  case 0xac: /* xor h */
-    return xor8(z80, reg(h));
-  case 0xad: /* xor l */
-    return xor8(z80, reg(l));
-  case 0xae: /* xor (hl) */
-    return xor8(z80, read_byte_at(z80, hl(z80))) + 3;
-  case 0xaf: /* xor a */
-    return xor8(z80, reg(a));
+
   case 0xd9: /* exx */
     z80->reg.cur = z80->cur_reg_set == 0 ? &z80->reg.main : &z80->reg.alt;
     z80->cur_reg_set = !z80->cur_reg_set;
     return 4;
+
   default:
     return Z80E_INVALID_OPCODE;
   };
