@@ -8,3 +8,9 @@ add_custom_target(
     ${PYTHON} -m unittest tests.test_instructions
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 )
+
+add_custom_target(
+    RunDAATest
+    ${PYTHON} -m tests.test_daa
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+)

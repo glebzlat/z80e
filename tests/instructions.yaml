@@ -334,6 +334,7 @@ tests:
       halt
     regs:
       a: 0x00
+      f: 0x44
       pc: 0x0004
   - desc: "daa - a = 0x99 in (0x00, 0x99), HNC = 000, add 0x00"
     source: |
@@ -342,6 +343,7 @@ tests:
       halt
     regs:
       a: 0x99
+      f: 0x8c
       pc: 0x0004
   - desc: "daa - a = 0x0a in (0x0a, 0x9f), HNC = 000, add 0x06"
     source: |
@@ -350,12 +352,14 @@ tests:
       halt
     regs:
       a: 0x10
+      f: 0x10
       pc: 0x0004
-  - desc: "daa - a = 0x9f in (0x0a, 0x9f), HNC = 000, add 0x06"
+  - desc: "daa - a = 0x9f in (0x0a, 0x9f), HNC = 000, add 0x66"
     source: |
       ld a, 0x9f
       daa
       halt
     regs:
-      a: 0xa5
+      a: 0x05
+      f: 0x15
       pc: 0x0004
