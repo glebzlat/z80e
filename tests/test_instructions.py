@@ -4,6 +4,7 @@ import subprocess as sp
 import yaml
 
 from typing import Optional
+from io import StringIO
 
 from tests.common import TESTS_DIR, PROG, compile_asm, run_test_program, test_memory
 
@@ -18,11 +19,15 @@ def try_find_desc_line(desc: str) -> Optional[int]:
     return None
 
 
-def create_exception(desc: str, what: AssertionError | str) -> AssertionError:
+def create_exception(desc: str, what: AssertionError | str, listing: str) -> AssertionError:
     lineno = try_find_desc_line(desc)
     lineno = f"{lineno}:" if lineno is not None else ""
-    msg = f"{INSTRUCTIONS}:{lineno} test {desc!r} failed: {what}"
-    return AssertionError(msg)
+    stream = StringIO()
+    print(f"{INSTRUCTIONS}:{lineno} test {desc!r} failed: {what}", file=stream)
+    print(file=stream)
+    print("Assembly listing:", file=stream)
+    print(listing, file=stream)
+    return AssertionError(stream.getvalue())
 
 
 class InstructionTestMeta(type):
@@ -48,15 +53,15 @@ class InstructionTestMeta(type):
                 source, registers = test["source"], test["regs"]
                 mem = test.get("mem")
                 try:
-                    encoded = compile_asm(source)
+                    listing, encoded = compile_asm(source)
                     result_registers = run_test_program(PROG, encoded, b"")
                     self.compare_registers(result_registers, registers)
                     if mem is not None:
                         test_memory(self, mem)
                 except AssertionError as e:
-                    raise create_exception(test["desc"], e) from None
+                    raise create_exception(test["desc"], e, listing) from None
                 except sp.TimeoutExpired:
-                    raise create_exception(test["desc"], "timeout expired") from None
+                    raise create_exception(test["desc"], "timeout expired", listing) from None
 
             fn_name = f"test_instruction_{i}"
             test_fn.__name__ = fn_name

@@ -5,7 +5,7 @@ import subprocess as sp
 from io import StringIO, BytesIO
 from pathlib import Path
 
-from z80asm import Z80AsmParser, Z80AsmLayouter, Z80AsmCompiler
+from z80asm import Z80AsmParser, Z80AsmLayouter, Z80AsmCompiler, Z80AsmPrinter
 
 TESTS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = TESTS_DIR.parent
@@ -19,7 +19,7 @@ TEST_TIMEOUT_SEC = 1
 MEMFILE_SIZE_BYTES = 2 ** 16
 
 
-def compile_asm(source: str) -> bytes:
+def compile_asm(source: str) -> tuple[str, bytes]:
     parser = Z80AsmParser(undoc_instructions=True)
 
     istream = StringIO(source)
@@ -32,10 +32,14 @@ def compile_asm(source: str) -> bytes:
     compiler = Z80AsmCompiler()
     compiler.compile_program(parser.instructions)
 
+    sstream = StringIO()
+    printer = Z80AsmPrinter(sstream, replace_names=True)
+    printer.print_program(parser.instructions)
+
     ostream = BytesIO()
     compiler.emit_bytes(ostream)
 
-    return ostream.getvalue()
+    return sstream.getvalue(), ostream.getvalue()
 
 
 def parse_reg_dump(s: str) -> dict[str, int]:

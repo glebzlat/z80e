@@ -9,6 +9,8 @@
 #define bit(v, n) (((v) & (1 << n)) != 0)
 #define low_nibble(v) (v & 0x0f)
 #define high_nibble(v) (v >> 4)
+#define lsb(v) (v & 0xff)
+#define msb(v) (v >> 8)
 
 static u8 z80e_execute(z80e* z80, u8 opcode);
 
@@ -451,8 +453,11 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
     return 4;
 
   case 0xd9: /* exx */
-    z80->reg.cur = z80->cur_reg_set == 0 ? &z80->reg.main : &z80->reg.alt;
-    z80->cur_reg_set = !z80->cur_reg_set;
+    if (z80->reg.cur == &z80->reg.main) {
+      z80->reg.cur = &z80->reg.alt;
+    } else if (z80->reg.cur == &z80->reg.alt) {
+      z80->reg.cur = &z80->reg.main;
+    }
     return 4;
 
   case 0xe3: /* ex (sp), hl */
@@ -771,13 +776,14 @@ static u8 ldd(z80e* z80) {
 }
 
 static void push(z80e* z80, u16 rr) {
-  write_byte_at(z80, high_nibble(rr), --z80->reg.sp);
-  write_byte_at(z80, low_nibble(rr), --z80->reg.sp);
+  write_byte_at(z80, msb(rr), --z80->reg.sp);
+  write_byte_at(z80, lsb(rr), --z80->reg.sp);
 }
 
 static u16 pop(z80e* z80) {
   z80->state.tmp = read_byte_at(z80, z80->reg.sp);
-  z80->state.tmp = (u16)read_byte_at(z80, ++z80->reg.sp) << 8;
+  z80->state.tmp |= (u16)read_byte_at(z80, ++z80->reg.sp) << 8;
+  z80->reg.sp += 1;
   return z80->state.tmp;
 }
 
