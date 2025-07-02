@@ -39,6 +39,10 @@ typedef struct {
   u8 l;
 } z80e_registers;
 
+typedef struct {
+  u16 tmp;
+} z80e_state;
+
 typedef enum {
   Z80E_OK = 0,
   Z80E_DAA_INVALID_VALUE = -1,
@@ -61,6 +65,9 @@ struct z80e {
 
   u8 cur_reg_set; /*< 0 - main, 1 - alt */
   u8 halt;
+  u8 iff;
+  u8 int_mode;
+  z80e_state state;
 
   z80e_memread_fn_t memread;
   z80e_memwrite_fn_t memwrite;
