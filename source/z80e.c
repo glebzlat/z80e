@@ -11,6 +11,7 @@
 #define high_nibble(v) (v >> 4)
 #define lsb(v) (v & 0xff)
 #define msb(v) (v >> 8)
+#define half_carry(a, b) ((((a) & 0x0f) + ((b) & 0x0f)) > 0x0f)
 
 static u8 z80e_execute(z80e* z80, u8 opcode);
 
@@ -313,7 +314,7 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
   case 0x8c: add8(z80, reg(h) + cf(z80)); return 4; /* adc a, h */
   case 0x8d: add8(z80, reg(l) + cf(z80)); return 4; /* adc a, l */
   case 0x8f: add8(z80, reg(a) + cf(z80)); return 4; /* adc a, a */
-  case 0xce: add8(z80, read_byte(z80)); return 7; /* adc a, n */
+  case 0xce: add8(z80, read_byte(z80) + cf(z80)); return 7; /* adc a, n */
   case 0x8e: add8(z80, read_byte_at(z80, hl(z80)) + cf(z80)); return 7; /* adc a, (hl) */
 
   case 0x90: sub8(z80, reg(b)); return 4; /* sub b */
@@ -641,12 +642,13 @@ static void inc8(z80e* z80, u8* reg) {
 
 static void add8(z80e* z80, u8 v) {
   set_cf(z80, u8_overflow(reg(a), v));
+  set_pof(z80, cf(z80));
   set_hf(z80, u8_half_carry(reg(a), v));
   reg(a) += v;
   set_sf(z80, u8_negative(reg(a)));
   set_zf(z80, reg(a) == 0);
   set_yf(z80, bit(reg(a), 5));
-  set_yf(z80, bit(reg(a), 3));
+  set_xf(z80, bit(reg(a), 3));
   set_nf(z80, 0); /* Add = 0/Subtract = 1 */
 }
 

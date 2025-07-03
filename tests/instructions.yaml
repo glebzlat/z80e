@@ -227,6 +227,79 @@ tests:
       l: 0x6a
       l_alt: 0x6b
       pc: 0x0014
+  - desc: ex (sp), hl
+    source: |
+      ld de, 0x1234
+      push de
+      ex (sp), hl
+      halt
+    regs:
+      d: 0x12
+      e: 0x34
+      h: 0x12
+      l: 0x34
+      sp: 0xfffe
+      pc: 0x0006
+  - desc: add a, r - no flags
+    source: |
+      ld b, 0x1
+      add a, b
+      halt
+    regs:
+      a: 0x01
+      b: 0x01
+      f: 0x00
+      pc: 0x0004
+  - desc: add a, r - sf
+    source: |
+      ld b, 0x80
+      add a, b
+      halt
+    regs:
+      a: 0x80
+      b: 0x80
+      f: 0x80
+      pc: 0x0004
+  - desc: add a, r - zf
+    source: |
+      add a, b
+      halt
+    regs:
+      f: 0x40
+      pc: 0x0002
+  - desc: add a, r - yf
+    source: |
+      ld a, 0x10
+      ld b, 0x10
+      add a, b
+      halt
+    regs:
+      a: 0x20
+      b: 0x10
+      f: 0x20
+      pc: 0x0006
+  - desc: add a, r - hf
+    source: |
+      ld a, 0xd
+      ld b, 0x3
+      add a, b
+      halt
+    regs:
+      a: 0x10
+      b: 0x03
+      f: 0x10
+      pc: 0x0006
+  - desc: add a, r - xf
+    source: |
+      ld a, 0x04
+      ld b, 0x04
+      add a, b
+      halt
+    regs:
+      a: 0x08
+      b: 0x04
+      f: 0x08
+      pc: 0x0006
   - desc: dec a
     source: |
       ld a, 0x10
@@ -236,6 +309,266 @@ tests:
       a: 0x0f
       f: 0x1a
       pc: 0x0004
+  - desc: add a, r - pvf, cf
+    source: |
+      ld a, 0xff
+      ld b, 2
+      add a, b
+      halt
+    regs:
+      a: 0x01
+      b: 0x02
+      f: 0x15
+      pc: 0x0006
+  - desc: add a, r - all registers
+    source: |
+      ld b, 0x1
+      ld c, 0x2
+      ld d, 0x3
+      ld e, 0x4
+      ld h, 0x5
+      ld l, 0x6
+      add a, b
+      add a, c
+      add a, d
+      add a, e
+      add a, h
+      add a, l
+      halt
+    regs:
+      a: 0x15
+      b: 0x01
+      c: 0x02
+      d: 0x03
+      e: 0x04
+      h: 0x05
+      l: 0x06
+      f: 0x10
+      pc: 0x0013
+  - desc: add a, n
+    source: |
+      ld a, 0xff
+      add a, 0x40
+      halt
+    regs:
+      a: 0x3f
+      f: 0x2d
+      pc: 0x0005
+  - desc: add a, (hl)
+    source: |
+      ld hl, 0x0100
+      ld (hl), 0x08
+      ld a, 0x18
+      add a, (hl)
+      halt
+    regs:
+      a: 0x20
+      h: 0x01
+      f: 0x30
+      pc: 0x0009
+  - desc: add a, n - overflow
+    source: |
+      ld a, 0xff
+      add a, 0x11
+      halt
+    regs:
+      a: 0x10
+      f: 0x15
+      pc: 0x0005
+  - desc: adc a, r - cf = 1
+    source: |
+      ld a, 0xff
+      ld b, 0x16
+      add a, 0x11  ; cf = 1, a = 0x10
+      adc a, b     ; a = 0x10 + 0x16 + 1 = 0x27
+      halt
+    regs:
+      a: 0x27
+      b: 0x16
+      f: 0x20
+      pc: 0x0008
+  - desc: adc a, r - cf = 0
+    source: |
+      ld a, 0x10
+      ld b, 0x16
+      adc a, b
+      halt
+    regs:
+      a: 0x26
+      b: 0x16
+      f: 0x20
+      pc: 0x0006
+  - desc: adc a, r - edge case
+    source: |
+      ld a, 0xff
+      ld b, 0xff
+      add a, 0x02  ; cf = 1, a = 0x01
+      adc a, b     ; a = 0x01 + 0xff + 1 = 0x01
+      halt
+    regs:
+      a: 0x01
+      b: 0xff
+      pc: 0x0008
+  - desc: adc a, n
+    source: |
+      ld a, 0xff
+      add a, 0x02
+      adc a, 0xff
+      halt
+    regs:
+      a: 0x01
+      pc: 0x0007
+  - desc: adc a, (hl)
+    source: |
+      ld hl, 0x0100
+      ld (hl), 0x16
+      ld a, 0xff
+      add a, 0x11
+      adc a, (hl)
+      halt
+    regs:
+      a: 0x27
+      h: 0x01
+      f: 0x20
+      pc: 0x000b
+  - desc: sub r - sf, yf, hf, xf, nf, cf
+    source: |
+      ld b, 0x01
+      sub b
+      halt
+    regs:
+      a: 0xff
+      b: 0x01
+      f: 0xbf
+      pc: 0x0004
+  - desc: sub r - zf, nf
+    source: |
+      ld b, 0x01
+      ld a, 0x01
+      sub b
+      halt
+    regs:
+      a: 0x00
+      b: 0x01
+      f: 0x42
+      pc: 0x0006
+  - desc: sub r - all registers
+    source: |
+      ld a, 0x16
+      ld b, 0x01
+      ld c, 0x02
+      ld d, 0x03
+      ld e, 0x04
+      ld h, 0x05
+      ld l, 0x06
+      sub b
+      sub c
+      sub d
+      sub e
+      sub h
+      sub l
+      halt
+    regs:
+      a: 0x01
+      b: 0x01
+      c: 0x02
+      d: 0x03
+      e: 0x04
+      h: 0x05
+      l: 0x06
+      f: 0x02
+      pc: 0x0015
+  - desc: sub n
+    source: |
+      ld a, 0x10
+      sub 0x06
+      halt
+    regs:
+      a: 0x0a
+      f: 0x1a
+      pc: 0x0005
+  - desc: sub (hl)
+    source: |
+      ld hl, 0x1234
+      ld (hl), 0x10
+      ld a, 0x40
+      sub (hl)
+      halt
+    regs:
+      a: 0x30
+      h: 0x12
+      l: 0x34
+      f: 0x22
+      pc: 0x0009
+  - desc: sbc a, r - cf = 1
+    source: |
+      ld b, 0x05
+      sub 0xea   ; cf = 1, a = 0x16
+      sbc a, b   ; a = 0x16 - (0x05 + 1) = 0x10, cf = 0
+      halt
+    regs:
+      a: 0x10
+      b: 0x05
+      f: 0x02
+      pc: 0x0006
+  - desc: sbc a, r
+    source: |
+      sub 0xea  ; cf = 1, a = 0x16
+      sbc a, b  ; a = 0x16 - (0x00 + 1) = 0x15, cf = 0
+      halt
+    regs:
+      a: 0x15
+      f: 0x02
+      pc: 0x0004
+  - desc: sbc a, r - cf = 0
+    source: |
+      ld b, 0x01
+      sbc a, b
+      halt
+    regs:
+      a: 0xff
+      b: 0x01
+      f: 0xbf
+      pc: 0x0004
+  - desc: sbc a, r - edge case
+  # Interesting case. I expected sbc to perform a - b - 1, but what it seems sbc
+  # actually does is a - (b + 1):
+  #
+  # > Sum of second operand and carry flag is subtracted from the first operand.
+  #
+  # from http://z80-heaven.wikidot.com/instructions-set:sbc
+    source: |
+      ld b, 0xff
+      sub 0x1
+      sbc a, b
+      halt
+    regs:
+      a: 0xff
+      b: 0xff
+      f: 0xaa
+      pc: 0x0006
+  - desc: sbc a, n
+    source: |
+      sub 0xea
+      sbc a, 0x5
+      halt
+    regs:
+      a: 0x10
+      f: 0x02
+      pc: 0x0005
+  - desc: sbc a, (hl)
+    source: |
+      ld hl, 0x1234
+      ld (hl), 0xff
+      sub 0x1       ; cf = 1, a = 0xff
+      sbc a, (hl)   ; a = 0xff - (0xff + 1) = 0xff
+      halt
+    regs:
+      a: 0xff
+      h: 0x12
+      l: 0x34
+      f: 0xaa
+      pc: 0x0009
   - desc: dec a - overflow
     source: |
       ld a, 0x00
