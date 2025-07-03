@@ -216,15 +216,17 @@ tests:
     regs:
       b: 0x1a
       b_alt: 0x1b
-      c: 0x2b
-      c_alt: 0x2a
-      d: 0x3b
-      d_alt: 0x3a
-      h: 0x4b
-      h_alt: 0x4a
-      l: 0x5b
-      l_alt: 0x5a
-      pc: 0x0015
+      c: 0x2a
+      c_alt: 0x2b
+      d: 0x3a
+      d_alt: 0x3b
+      e: 0x4a
+      e_alt: 0x4b
+      h: 0x5a
+      h_alt: 0x5b
+      l: 0x6a
+      l_alt: 0x6b
+      pc: 0x0014
   - desc: dec a
     source: |
       ld a, 0x10
