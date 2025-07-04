@@ -11,14 +11,13 @@
 #define high_nibble(v) (v >> 4)
 #define lsb(v) (v & 0xff)
 #define msb(v) (v >> 8)
-#define half_carry(a, b) ((((a) & 0x0f) + ((b) & 0x0f)) > 0x0f)
 
 static u8 z80e_execute(z80e* z80, u8 opcode);
 
 static void dec8(z80e* z80, u8* reg);
 static void inc8(z80e* z80, u8* reg);
-static void add8(z80e* z80, u8 v);
-static void sub8(z80e* z80, u8 v);
+static void add8(z80e* z80, u8 v, u8 c);
+static void sub8(z80e* z80, u8 v, u8 c);
 static void and8(z80e* z80, u8 v);
 static void or8(z80e* z80, u8 v);
 static void xor8(z80e* z80, u8 v);
@@ -101,12 +100,24 @@ static inline void set_xf_u8(z80e* z80, u8 v) { set_xf(z80, bit(v, 3)); }
 static inline void set_yf_u16(z80e* z80, u16 v) { set_yf(z80, bit(v, 13)); }
 static inline void set_xf_u16(z80e* z80, u16 v) { set_xf(z80, bit(v, 11)); }
 
-inline static int u8_overflow(u8 a, u8 b) { return b > 0 && a > 0xff - b; }
-inline static int u16_overflow(u16 a, u16 b) { return b > 0 && a > 0xffff - b; }
-inline static int u8_half_carry(u8 a, u8 b) { return ((a & 0x0f) + (b & 0x0f)) > 0x0f; }
-inline static int u8_half_borrow(u8 a, u8 b) { return (a & 0x0f) < (b & 0x0f); }
-inline static int u16_byte_carry(u16 a, u16 b) { return ((a & 0x00ff) + (b & 0x00ff)) > 0x00ff; }
+/* Check whether the a + b + c will cause bit carry from i-th bit */
+inline static u8 carry(int i, u16 a, u16 b, u8 c) {
+  u16 mask = (1u << i) - 1;
+  u32 res = (a & mask) + (b & mask) + c;
+  return (res >> i) != 0;
+}
+
+/* Check whether a - (b + c) will cause bit borrow from i-th bit */
+inline static int borrow(int i, u16 a, u16 b, u8 c) {
+  u16 mask = (1u << i) - 1;
+  return (a & mask) < ((b + c) & mask);
+}
+
+inline static int u8_overflow(u8 a, u8 b) { return carry(7, a, b, 0); }
+inline static int u8_half_carry(u8 a, u8 b) { return carry(4, a, b, 0); }
+inline static int u8_half_borrow(u8 a, u8 b) { return borrow(4, a, b, 0); }
 inline static int u8_negative(u8 i) { return bit(i, 7); }
+inline static int u16_byte_carry(u16 a, u16 b) { return carry(8, a, b, 0); }
 
 static u8 read_byte(z80e* z80);
 static u8 read_byte_at(z80e* z80, u16 addr);
@@ -297,45 +308,45 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
   case 0x2d: dec8(z80, &reg(l)); return 4; /* dec l */
   case 0x3d: dec8(z80, &reg(a)); return 4; /* dec a */
 
-  case 0x80: add8(z80, reg(b)); return 4; /* add a, b */
-  case 0x81: add8(z80, reg(c)); return 4; /* add a, c */
-  case 0x82: add8(z80, reg(d)); return 4; /* add a, d */
-  case 0x83: add8(z80, reg(e)); return 4; /* add a, e */
-  case 0x84: add8(z80, reg(h)); return 4; /* add a, h */
-  case 0x85: add8(z80, reg(l)); return 4; /* add a, l */
-  case 0x87: add8(z80, reg(a)); return 4; /* add a, a */
-  case 0xc6: add8(z80, read_byte(z80)); return 7; /* add a, n */
-  case 0x86: add8(z80, read_byte_at(z80, hl(z80))); return 7; /* add a, (hl) */
+  case 0x80: add8(z80, reg(b), 0); return 4; /* add a, b */
+  case 0x81: add8(z80, reg(c), 0); return 4; /* add a, c */
+  case 0x82: add8(z80, reg(d), 0); return 4; /* add a, d */
+  case 0x83: add8(z80, reg(e), 0); return 4; /* add a, e */
+  case 0x84: add8(z80, reg(h), 0); return 4; /* add a, h */
+  case 0x85: add8(z80, reg(l), 0); return 4; /* add a, l */
+  case 0x87: add8(z80, reg(a), 0); return 4; /* add a, a */
+  case 0xc6: add8(z80, read_byte(z80), 0); return 7; /* add a, n */
+  case 0x86: add8(z80, read_byte_at(z80, hl(z80)), 0); return 7; /* add a, (hl) */
 
-  case 0x88: add8(z80, reg(b) + cf(z80)); return 4; /* adc a, b */
-  case 0x89: add8(z80, reg(c) + cf(z80)); return 4; /* adc a, c */
-  case 0x8a: add8(z80, reg(d) + cf(z80)); return 4; /* adc a, d */
-  case 0x8b: add8(z80, reg(e) + cf(z80)); return 4; /* adc a, e */
-  case 0x8c: add8(z80, reg(h) + cf(z80)); return 4; /* adc a, h */
-  case 0x8d: add8(z80, reg(l) + cf(z80)); return 4; /* adc a, l */
-  case 0x8f: add8(z80, reg(a) + cf(z80)); return 4; /* adc a, a */
-  case 0xce: add8(z80, read_byte(z80) + cf(z80)); return 7; /* adc a, n */
-  case 0x8e: add8(z80, read_byte_at(z80, hl(z80)) + cf(z80)); return 7; /* adc a, (hl) */
+  case 0x88: add8(z80, reg(b), cf(z80)); return 4; /* adc a, b */
+  case 0x89: add8(z80, reg(c), cf(z80)); return 4; /* adc a, c */
+  case 0x8a: add8(z80, reg(d), cf(z80)); return 4; /* adc a, d */
+  case 0x8b: add8(z80, reg(e), cf(z80)); return 4; /* adc a, e */
+  case 0x8c: add8(z80, reg(h), cf(z80)); return 4; /* adc a, h */
+  case 0x8d: add8(z80, reg(l), cf(z80)); return 4; /* adc a, l */
+  case 0x8f: add8(z80, reg(a), cf(z80)); return 4; /* adc a, a */
+  case 0xce: add8(z80, read_byte(z80), cf(z80)); return 7; /* adc a, n */
+  case 0x8e: add8(z80, read_byte_at(z80, hl(z80)), cf(z80)); return 7; /* adc a, (hl) */
 
-  case 0x90: sub8(z80, reg(b)); return 4; /* sub b */
-  case 0x91: sub8(z80, reg(c)); return 4; /* sub c */
-  case 0x92: sub8(z80, reg(d)); return 4; /* sub d */
-  case 0x93: sub8(z80, reg(e)); return 4; /* sub e */
-  case 0x94: sub8(z80, reg(h)); return 4; /* sub h */
-  case 0x95: sub8(z80, reg(l)); return 4; /* sub l */
-  case 0x97: sub8(z80, reg(a)); return 4; /* sub a */
-  case 0xd6: sub8(z80, read_byte(z80)); return 7; /* sub n */
-  case 0x96: sub8(z80, read_byte_at(z80, hl(z80))); return 7; /* sub (hl) */
+  case 0x90: sub8(z80, reg(b), 0); return 4; /* sub b */
+  case 0x91: sub8(z80, reg(c), 0); return 4; /* sub c */
+  case 0x92: sub8(z80, reg(d), 0); return 4; /* sub d */
+  case 0x93: sub8(z80, reg(e), 0); return 4; /* sub e */
+  case 0x94: sub8(z80, reg(h), 0); return 4; /* sub h */
+  case 0x95: sub8(z80, reg(l), 0); return 4; /* sub l */
+  case 0x97: sub8(z80, reg(a), 0); return 4; /* sub a */
+  case 0xd6: sub8(z80, read_byte(z80), 0); return 7; /* sub n */
+  case 0x96: sub8(z80, read_byte_at(z80, hl(z80)), 0); return 7; /* sub (hl) */
 
-  case 0x98: sub8(z80, reg(b) + cf(z80)); return 4; /* sbc a, b */
-  case 0x99: sub8(z80, reg(c) + cf(z80)); return 4; /* sbc a, c */
-  case 0x9a: sub8(z80, reg(d) + cf(z80)); return 4; /* sbc a, d */
-  case 0x9b: sub8(z80, reg(e) + cf(z80)); return 4; /* sbc a, e */
-  case 0x9c: sub8(z80, reg(h) + cf(z80)); return 4; /* sbc a, h */
-  case 0x9d: sub8(z80, reg(l) + cf(z80)); return 4; /* sbc a, l */
-  case 0x9f: sub8(z80, reg(a) + cf(z80)); return 4; /* sbc a, a */
-  case 0xde: sub8(z80, read_byte(z80) + cf(z80)); return 7; /* sbc a, n */
-  case 0x9e: sub8(z80, read_byte_at(z80, hl(z80)) + cf(z80)); return 7; /* sbc a, (hl) */
+  case 0x98: sub8(z80, reg(b), cf(z80)); return 4; /* sbc a, b */
+  case 0x99: sub8(z80, reg(c), cf(z80)); return 4; /* sbc a, c */
+  case 0x9a: sub8(z80, reg(d), cf(z80)); return 4; /* sbc a, d */
+  case 0x9b: sub8(z80, reg(e), cf(z80)); return 4; /* sbc a, e */
+  case 0x9c: sub8(z80, reg(h), cf(z80)); return 4; /* sbc a, h */
+  case 0x9d: sub8(z80, reg(l), cf(z80)); return 4; /* sbc a, l */
+  case 0x9f: sub8(z80, reg(a), cf(z80)); return 4; /* sbc a, a */
+  case 0xde: sub8(z80, read_byte(z80), cf(z80)); return 7; /* sbc a, n */
+  case 0x9e: sub8(z80, read_byte_at(z80, hl(z80)), cf(z80)); return 7; /* sbc a, (hl) */
 
   case 0xa0: and8(z80, reg(b)); return 4; /* and b */
   case 0xa1: and8(z80, reg(c)); return 4; /* and c */
@@ -594,10 +605,10 @@ static u8 z80e_execute_ddfd(z80e* z80, u16* rr, u8 opcode) {
   case 0xe5: push(z80, *rr); return 15; /* push iz */
   case 0xe1: *rr = pop(z80); return 14; /* pop iz */
 
-  case 0x86: add8(z80, read_byte_at(z80, *rr + (i8)read_byte(z80))); return 19; /* add a, (iz+d) */
-  case 0x8e: add8(z80, read_byte_at(z80, *rr + (i8)read_byte(z80)) + cf(z80)); return 19; /* adc a, (iz+d) */
-  case 0x96: sub8(z80, read_byte_at(z80, *rr + (i8)read_byte(z80))); return 19; /* sub a, (iz+d) */
-  case 0x9e: sub8(z80, read_byte_at(z80, *rr + (i8)read_byte(z80)) + cf(z80)); return 19; /* sbc a, (iz+d) */
+  case 0x86: add8(z80, read_byte_at(z80, *rr + (i8)read_byte(z80)), 0); return 19; /* add a, (iz+d) */
+  case 0x8e: add8(z80, read_byte_at(z80, *rr + (i8)read_byte(z80)), cf(z80)); return 19; /* adc a, (iz+d) */
+  case 0x96: sub8(z80, read_byte_at(z80, *rr + (i8)read_byte(z80)), 0); return 19; /* sub a, (iz+d) */
+  case 0x9e: sub8(z80, read_byte_at(z80, *rr + (i8)read_byte(z80)), cf(z80)); return 19; /* sbc a, (iz+d) */
   case 0xa6: and8(z80, read_byte_at(z80, *rr + (i8)read_byte(z80))); return 19; /* and (iz+d) */
   case 0xb6: or8(z80, read_byte_at(z80, *rr + (i8)read_byte(z80))); return 19; /* or (iz+d) */
   case 0xae: xor8(z80, read_byte_at(z80, *rr + (i8)read_byte(z80))); return 19; /* xor (iz+d) */
@@ -640,11 +651,11 @@ static void inc8(z80e* z80, u8* reg) {
   set_nf(z80, 0); /* Add = 0/Subtract = 1 */
 }
 
-static void add8(z80e* z80, u8 v) {
-  set_cf(z80, u8_overflow(reg(a), v));
+static void add8(z80e* z80, u8 v, u8 c) {
+  set_cf(z80, carry(7, reg(a), v, c));
   set_pof(z80, cf(z80));
-  set_hf(z80, u8_half_carry(reg(a), v));
-  reg(a) += v;
+  set_hf(z80, carry(4, reg(a), v, c));
+  reg(a) = reg(a) + v + c;
   set_sf(z80, u8_negative(reg(a)));
   set_zf(z80, reg(a) == 0);
   set_yf(z80, bit(reg(a), 5));
@@ -652,11 +663,11 @@ static void add8(z80e* z80, u8 v) {
   set_nf(z80, 0); /* Add = 0/Subtract = 1 */
 }
 
-static void sub8(z80e* z80, u8 v) {
-  set_hf(z80, u8_half_borrow(reg(a), v)); /* Will borrow from bit 3 */
-  set_pof(z80, reg(a) < v);               /* Will overflow */
-  set_cf(z80, reg(a) < v);                /* Will borrow */
-  reg(a) -= v;
+static void sub8(z80e* z80, u8 v, u8 c) {
+  set_cf(z80, borrow(8, reg(a), v, c));
+  set_pof(z80, cf(z80));
+  set_hf(z80, borrow(4, reg(a), v, c));
+  reg(a) = reg(a) - (v + c);
   set_sf(z80, u8_negative(reg(a)));
   set_zf(z80, reg(a) == 0);
   set_yf(z80, bit(reg(a), 5));
@@ -703,7 +714,7 @@ static void xor8(z80e* z80, u8 v) {
 static void cp8(z80e* z80, u8 v) {
   z80->state.tmp = reg(a) - v;
   set_hf(z80, u8_half_borrow(reg(a), v));
-  set_pof(z80, u8_overflow(reg(a), v));
+  set_pof(z80, borrow(8, reg(a), v, 0));
   set_sf(z80, u8_negative(z80->state.tmp));
   set_zf(z80, reg(a) == v);
   set_yf(z80, bit(z80->state.tmp, 5));
@@ -742,7 +753,7 @@ static u16 add16(z80e* z80, u16 a, u16 b) {
   set_hf(z80, u16_byte_carry(a, b));
   set_xf(z80, bit(res, 11));
   set_nf(z80, 0); /* Add = 0/Subtract = 1 */
-  set_cf(z80, u16_overflow(a, b));
+  set_cf(z80, carry(15, a, b, 0));
   return res;
 }
 

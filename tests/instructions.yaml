@@ -408,6 +408,7 @@ tests:
     regs:
       a: 0x01
       b: 0xff
+      f: 0x15
       pc: 0x0008
   - desc: adc a, n
     source: |
@@ -417,6 +418,7 @@ tests:
       halt
     regs:
       a: 0x01
+      f: 0x15
       pc: 0x0007
   - desc: adc a, (hl)
     source: |
