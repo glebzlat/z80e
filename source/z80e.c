@@ -45,6 +45,7 @@ static u8 cpdr(z80e* z80);
 
 static u8 jr(z80e* z80, u8 cond);
 static void daa(z80e* z80);
+static void cpl(z80e* z80);
 
 static u8 is_even_parity(u8 v);
 
@@ -421,7 +422,7 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
   case 0x10: reg(b) = reg(b) - 1; return jr(z80, reg(b) != 0) + 1; /* djnz d */
 
   case 0x27: daa(z80); return 4; /* daa */
-  case 0x2f: reg(a) = ~reg(a); return 4; /* cpl */
+  case 0x2f: cpl(z80); return 4; /* cpl */
 
   case 0x3f: set_cf(z80, !cf(z80)); return 4; /* ccf */
   case 0x37: set_cf(z80, 1); return 4; /* scf */
@@ -505,7 +506,7 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
 
   case 0x35: /* dec (hl) */
     tmp8 = read_byte_at(z80, hl(z80));
-    inc8(z80, &tmp8);
+    dec8(z80, &tmp8);
     write_byte_at(z80, tmp8, hl(z80));
     return 11;
 
@@ -630,7 +631,8 @@ static u8 z80e_execute_ddfd(z80e* z80, u16* rr, u8 opcode) {
 
 static void dec8(z80e* z80, u8* reg) {
   set_hf(z80, u8_half_borrow(*reg, 1));
-  set_pof(z80, *reg == 0x80); /* P/V is set if m was 80h before operation */
+  set_cf(z80, borrow(8, *reg, 1, 0));
+  set_pof(z80, cf(z80));
   *reg -= 1;
   set_sf(z80, u8_negative(*reg));
   set_zf(z80, *reg == 0);
@@ -676,7 +678,7 @@ static void sub8(z80e* z80, u8 v, u8 c) {
 }
 
 static void and8(z80e* z80, u8 v) {
-  reg(a) = reg(a) && v;
+  reg(a) = reg(a) & v;
   set_sf(z80, u8_negative(reg(a)));
   set_zf(z80, reg(a) == 0);
   set_hf(z80, 1);
@@ -688,7 +690,7 @@ static void and8(z80e* z80, u8 v) {
 }
 
 static void or8(z80e* z80, u8 v) {
-  reg(a) = reg(a) || v;
+  reg(a) = reg(a) | v;
   set_sf(z80, u8_negative(reg(a)));
   set_zf(z80, reg(a) == 0);
   set_yf(z80, bit(reg(a), 5));
@@ -714,7 +716,8 @@ static void xor8(z80e* z80, u8 v) {
 static void cp8(z80e* z80, u8 v) {
   z80->state.tmp = reg(a) - v;
   set_hf(z80, u8_half_borrow(reg(a), v));
-  set_pof(z80, borrow(8, reg(a), v, 0));
+  set_cf(z80, borrow(8, reg(a), v, 0));
+  set_pof(z80, cf(z80));
   set_sf(z80, u8_negative(z80->state.tmp));
   set_zf(z80, reg(a) == v);
   set_yf(z80, bit(z80->state.tmp, 5));
@@ -942,6 +945,14 @@ static void daa(z80e* z80) {
   set_yf(z80, bit(reg(a), 5));
   set_xf(z80, bit(reg(a), 3));
   set_pof(z80, is_even_parity(reg(a)));
+}
+
+static void cpl(z80e* z80) {
+  reg(a) = ~reg(a);
+  set_yf(z80, bit(reg(a), 5));
+  set_hf(z80, 1);
+  set_xf(z80, bit(reg(a), 3));
+  set_nf(z80, 1);
 }
 
 static void set_bc(z80e* z80, u16 val) {
