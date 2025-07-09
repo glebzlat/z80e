@@ -46,6 +46,8 @@ static u8 cpdr(z80e* z80);
 static u8 jr(z80e* z80, u8 cond);
 static void daa(z80e* z80);
 static void cpl(z80e* z80);
+static void ccf(z80e* z80);
+static void scf(z80e* z80);
 
 static u8 is_even_parity(u8 v);
 
@@ -101,7 +103,7 @@ static inline void set_xf_u8(z80e* z80, u8 v) { set_xf(z80, bit(v, 3)); }
 static inline void set_yf_u16(z80e* z80, u16 v) { set_yf(z80, bit(v, 13)); }
 static inline void set_xf_u16(z80e* z80, u16 v) { set_xf(z80, bit(v, 11)); }
 
-/* Check whether the a + b + c will cause bit carry from i-th bit */
+/* Check whether the a + b + c will cause bit carry to i-th bit */
 inline static u8 carry(int i, u16 a, u16 b, u8 c) {
   u16 mask = (1u << i) - 1;
   u32 res = (a & mask) + (b & mask) + c;
@@ -424,8 +426,8 @@ static u8 z80e_execute(z80e* z80, u8 opcode) {
   case 0x27: daa(z80); return 4; /* daa */
   case 0x2f: cpl(z80); return 4; /* cpl */
 
-  case 0x3f: set_cf(z80, !cf(z80)); return 4; /* ccf */
-  case 0x37: set_cf(z80, 1); return 4; /* scf */
+  case 0x3f: ccf(z80); return 4; /* ccf */
+  case 0x37: scf(z80); return 4; /* scf */
   case 0x00: return 4; /* nop */
   case 0x76: z80->halt = 1; return 4; /* halt */
   case 0xf3: set_iff1(z80, 0); set_iff2(z80, 0); return 4; /* di */
@@ -654,7 +656,7 @@ static void inc8(z80e* z80, u8* reg) {
 }
 
 static void add8(z80e* z80, u8 v, u8 c) {
-  set_cf(z80, carry(7, reg(a), v, c));
+  set_cf(z80, carry(8, reg(a), v, c));
   set_pof(z80, cf(z80));
   set_hf(z80, carry(4, reg(a), v, c));
   reg(a) = reg(a) + v + c;
@@ -955,6 +957,17 @@ static void cpl(z80e* z80) {
   set_nf(z80, 1);
 }
 
+static void ccf(z80e* z80) {
+  set_hf(z80, cf(z80));
+  set_cf(z80, !cf(z80));
+}
+
+static void scf(z80e* z80) {
+  set_hf(z80, 0);
+  set_nf(z80, 0);
+  set_cf(z80, 1);
+}
+
 static void set_bc(z80e* z80, u16 val) {
   reg(b) = val >> 8;
   reg(c) = val;
@@ -1005,11 +1018,11 @@ static void write_byte(z80e* z80, u8 byte) {
 static void write_byte_at(z80e* z80, u8 byte, u16 addr) { z80->memwrite(addr, byte, z80->ctx); }
 
 static void write_word(z80e* z80, u16 word) {
-  write_byte(z80, (word >> 8));
   write_byte(z80, word);
+  write_byte(z80, (word >> 8));
 }
 
 static void write_word_at(z80e* z80, u16 word, u16 addr) {
-  write_byte_at(z80, (word >> 8), addr);
-  write_byte_at(z80, word, addr + 1);
+  write_byte_at(z80, word, addr);
+  write_byte_at(z80, (word >> 8), addr + 1);
 }
