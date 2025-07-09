@@ -50,12 +50,22 @@ class InstructionTestMeta(type):
             def test_fn(self: unittest.TestCase, i=i, test=test):
                 if (reason := test.get("skip")) is not None:
                     self.skipTest(reason)
+
                 source, registers = test["source"], test["regs"]
                 mem = test.get("mem")
+                preset = test.get("preset")
+                inspect = test.get("inspect")
+
                 try:
                     listing, encoded = compile_asm(source)
-                    result_registers = run_test_program(PROG, encoded, b"")
-                    self.compare_registers(result_registers, registers)
+                    result_registers = run_test_program(PROG, encoded, b"", preset_regs=preset, dump_points=inspect)
+
+                    if inspect is not None:
+                        for i, (pc, regs) in enumerate(inspect.items()):
+                            self.compare_registers(result_registers[i], regs)
+
+                    self.compare_registers(result_registers[-1], registers)
+
                     if mem is not None:
                         test_memory(self, mem)
                 except AssertionError as e:

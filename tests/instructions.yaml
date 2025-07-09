@@ -1,15 +1,37 @@
 # Format:
 #   - desc: <description>
 #     source: <asm code>
-#     # Test is disabled if skip field is present.
-#     [skip: <reason>]
-#     regs:
-#       # Registers not mentioned in regs tested to be 0x00.
+#
+#     # Optional: test is disabled if skip is present.
+#     skip: <reason>
+#
+#     # Optional: Program Counter -> register dump mapping. When the PC reaches
+#     #   the value in this field, the executable prints this register dump.
+#     #   It is asserted to be equal to the given register values.
+#     #   Registers not mentioned must be equal to 0x00.
+#     #   Note that the actual PC may be greater than dump point if the point
+#     #   is not aligned with the instruction bytes.
+#     inspect:
+#       <pc>:
+#         <register-name>: <int>
+#         ...
+#
+#     # Optional: register values that are set before start of the program.
+#     preset:
 #       <register-name>: <int>
-#     # Optional address -> value mapping. Tests only addresses from
-#     # the mapping, conversely to regs mapping.
-#     [mem:
-#       <addr>: <int>]
+#       ...
+#
+#     regs:
+#       # Registers not mentioned in regs must be equal to 0x00.
+#       <register-name>: <int>
+#       ...
+#
+#     # Optional: memory address -> value mapping. Given addresses
+#     #   tested to be equal to given values. Addresses not present in this
+#     #   field are not tested.
+#     mem:
+#       <addr>: <int>
+#       ...
 
 tests:
   - desc: nop
@@ -1202,6 +1224,79 @@ tests:
     mem:
       0x1111: 0x88
       0x2222: 0x88
+  - desc: test pipeline - preset registers
+    preset:
+      a: 0x01
+      b: 0x02
+      c: 0x03
+      d: 0x04
+      e: 0x05
+      f: 0x06
+      h: 0x07
+      l: 0x08
+      a_alt: 0x11
+      b_alt: 0x12
+      c_alt: 0x13
+      d_alt: 0x14
+      e_alt: 0x15
+      f_alt: 0x16
+      h_alt: 0x17
+      l_alt: 0x18
+      i: 0x09
+      r: 0x0a
+      ix: 0x100b
+      iy: 0x200c
+      sp: 0x300e
+    source: |
+      halt
+    regs:
+      a: 0x01
+      b: 0x02
+      c: 0x03
+      d: 0x04
+      e: 0x05
+      f: 0x06
+      h: 0x07
+      l: 0x08
+      a_alt: 0x11
+      b_alt: 0x12
+      c_alt: 0x13
+      d_alt: 0x14
+      e_alt: 0x15
+      f_alt: 0x16
+      h_alt: 0x17
+      l_alt: 0x18
+      i: 0x09
+      r: 0x0a
+      ix: 0x100b
+      iy: 0x200c
+      sp: 0x300e
+      pc: 0x0001
+  - desc: test pipeline - dump points
+    inspect:
+      0x0002:
+        a: 0x88
+        pc: 0x0002
+      0x0004:
+        a: 0x88
+        b: 0x66
+        pc: 0x0004
+      0x0005:
+        a: 0x88
+        b: 0x66
+        c: 0x33
+        # Note that the dump point may not be aligned, but PC always is.
+        pc: 0x0006
+    source: |
+      ld a, 0x88
+      ld b, 0x66
+      ld c, 0x33
+      halt
+    regs:
+      a: 0x88
+      b: 0x66
+      c: 0x33
+      pc: 0x0007
   - desc: "push rr"
     source: |
       ld sp, 0x1000

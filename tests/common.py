@@ -4,6 +4,7 @@ import subprocess as sp
 
 from io import StringIO, BytesIO
 from pathlib import Path
+from typing import Optional
 
 from z80asm import Z80AsmParser, Z80AsmLayouter, Z80AsmCompiler, Z80AsmPrinter
 
@@ -58,7 +59,14 @@ def parse_reg_dump(s: str) -> dict[str, int]:
     return registers
 
 
-def run_test_program(path: Path, memory: bytes, io: bytes) -> dict[str, int]:
+def run_test_program(
+    path: Path,
+    memory: bytes,
+    io: bytes,
+    *,
+    preset_regs: Optional[dict[str, int]] = None,
+    dump_points: Optional[dict[int, dict[str, int]]] = None
+) -> list[dict[str, int]]:
     with open(MEMFILE, "wb") as fout:
         # Fill the file to 64KiB with zeros.
         memory += b"\0" * (MEMFILE_SIZE_BYTES - len(memory))
@@ -66,13 +74,33 @@ def run_test_program(path: Path, memory: bytes, io: bytes) -> dict[str, int]:
     with open(IOFILE, "wb") as fout:
         fout.write(io)
 
-    cmd = [path, MEMFILE, IOFILE]
+    preset = []
+    if preset_regs is not None:
+        for reg, val in preset_regs.items():
+            reg = f"-r{reg}=0x{val:04x}"
+            preset.append(reg)
+
+    inspects = []
+    if dump_points is not None:
+        for pc, regs in dump_points.items():
+            dump = f"-dump=0x{pc:04x}"
+            inspects.append(dump)
+
+    cmd = [path, MEMFILE, IOFILE, *preset, *inspects]
     proc = sp.run(cmd, timeout=TEST_TIMEOUT_SEC, stdout=sp.PIPE, stderr=sp.PIPE, text=True, encoding="UTF-8")
 
     if proc.returncode != 0:
-        raise AssertionError(f"process returned code {proc.returncode}: {proc.stderr}")
+        cmd_cat = " ".join(str(i) for i in cmd)
+        raise AssertionError(f'process "{cmd_cat}" returned code {proc.returncode}: {proc.stderr}')
 
-    return parse_reg_dump(proc.stdout)
+    dumps = []
+    for chunk in proc.stdout.split("\n\n"):
+        dump = parse_reg_dump(chunk)
+        dumps.append(dump)
+
+    assert len(dumps) == len(inspects) + 1
+
+    return dumps
 
 
 def test_memory(case: unittest.TestCase, memmap: dict[int, int]):

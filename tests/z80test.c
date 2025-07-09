@@ -177,7 +177,7 @@ int parse_args(program_context* ctx, int argc, char** argv) {
       if (errno) {                                                                                                     \
         fprintf(stderr, ": %s\n", strerror(errno));                                                                    \
       } else {                                                                                                         \
-        fprintf(stderr, "\n");                                                                                         \
+        fprintf(stderr, ": %s\n", last);                                                                                         \
       }                                                                                                                \
       return 1;                                                                                                        \
     }                                                                                                                  \
@@ -218,6 +218,14 @@ int parse_args(program_context* ctx, int argc, char** argv) {
   int pos_arg_count = 0;
   while (argc != 0) {
     if ((*argv[0]) == '-') {
+      PARSE_REG("a_alt", reg.alt.a, 8)
+      PARSE_REG("b_alt", reg.alt.b, 8)
+      PARSE_REG("c_alt", reg.alt.c, 8)
+      PARSE_REG("d_alt", reg.alt.d, 8)
+      PARSE_REG("e_alt", reg.alt.e, 8)
+      PARSE_REG("f_alt", reg.alt.f, 8)
+      PARSE_REG("h_alt", reg.alt.h, 8)
+      PARSE_REG("l_alt", reg.alt.l, 8)
       PARSE_REG("a", reg.main.a, 8)
       PARSE_REG("b", reg.main.b, 8)
       PARSE_REG("c", reg.main.c, 8)
@@ -226,17 +234,10 @@ int parse_args(program_context* ctx, int argc, char** argv) {
       PARSE_REG("f", reg.main.f, 8)
       PARSE_REG("h", reg.main.h, 8)
       PARSE_REG("l", reg.main.l, 8)
-      PARSE_REG("a_alt", reg.alt.a, 8)
-      PARSE_REG("b_alt", reg.alt.b, 8)
-      PARSE_REG("c_alt", reg.alt.c, 8)
-      PARSE_REG("d_alt", reg.alt.d, 8)
-      PARSE_REG("e_alt", reg.alt.e, 8)
-      PARSE_REG("h_alt", reg.alt.h, 8)
-      PARSE_REG("l_alt", reg.alt.l, 8)
-      PARSE_REG("i", reg.i, 8)
-      PARSE_REG("r", reg.r, 8)
       PARSE_REG("ix", reg.ix, 16)
       PARSE_REG("iy", reg.iy, 16)
+      PARSE_REG("i", reg.i, 8)
+      PARSE_REG("r", reg.r, 8)
       PARSE_REG("sp", reg.sp, 16)
       PARSE_REG("pc", reg.pc, 16)
 
