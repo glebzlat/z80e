@@ -9,9 +9,9 @@
  * by strtoul with base 16.
  *
  * Suite also allows setting Program Counter values on which it will emit register dumps.
- * To specify a dumping point, pass `-dump=<hex-int>` option. It is allowed to specify
+ * To specify a dump point, pass `-dump=<hex-int>` option. It is allowed to specify
  * multiple points by passing several `-dump` options. Registers are printed when the PC
- * is greater than or equal to the dumping point.
+ * is greater than or equal to the dump point.
  */
 
 #include <assert.h>
@@ -243,7 +243,8 @@ int parse_args(program_context* ctx, int argc, char** argv) {
       PARSE_ARG("dump", 16, { ll_append(ctx->dump_points, &val, sizeof(val)); })
       /*
        * XXX: Add interrupt points. Not implemented yet.
-       * PARSE_ARG("i", { ll_append(ctx->interrupt_points, &val, sizeof(val)); });
+       * PARSE_ARG("irq", { ll_append(ctx->irq_points, &val, sizeof(val)); });
+       * PARSE_ARG("nmi", { ll_append(ctx->nmi_points, &val, sizeof(val)); });
        */
       PARSE_END();
     } else {
