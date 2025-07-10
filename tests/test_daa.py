@@ -242,8 +242,9 @@ def test_addition(m: Model, errors: ErrorCounter, printer: ProgressPrinter):
                 daa
                 halt
             """
-            encoded = compile_asm(source)
-            registers = run_test_program(PROG, encoded, b"")
+            _, encoded = compile_asm(source)
+            dumps = run_test_program(PROG, encoded, b"")
+            registers = dumps[-1]
             assert r == registers["a"], f"expected A register == 0x{r:02x}, got 0x{registers["a"]:02x}, daa=0x{r:02x}"
             test_flags(m, registers["f"])
         except AssertionError as e:
@@ -266,8 +267,9 @@ def test_subtraction(m: Model, errors: ErrorCounter, printer: ProgressPrinter):
                 daa
                 halt
                 """
-                encoded = compile_asm(source)
-                registers = run_test_program(PROG, encoded, b"")
+                _, encoded = compile_asm(source)
+                dumps = run_test_program(PROG, encoded, b"")
+                registers = dumps[-1]
                 assert r == registers["a"], f"expected A register == 0x{r:02x}, got 0x{registers["a"]:02x}"
                 test_flags(m, registers["f"])
             except AssertionError as e:
