@@ -1448,6 +1448,96 @@ tests:
       pc: 0x0003
     mem:
       0x2222: 0x88
+
+  - desc: lddr
+    preset:
+      regs:
+        b: 0x00
+        c: 0x03
+        d: 0x22
+        e: 0x25
+        h: 0x11
+        l: 0x14
+      mem:
+        0x1112: 0x88
+        0x1113: 0x36
+        0x1114: 0xa5
+        0x2223: 0x66
+        0x2224: 0x59
+        0x2225: 0xc5
+    source: |
+      lddr
+      halt
+    regs:
+      b: 0x00
+      c: 0x00
+      d: 0x22
+      e: 0x22
+      h: 0x11
+      l: 0x11
+      f: 0x08
+      pc: 0x0003
+    mem:
+      0x2223: 0x88
+      0x2224: 0x36
+      0x2225: 0xa5
+
+  - desc: cpi
+    # CPI/CPIR/CRD/CPDR instructions compare a series of bytes in memory to
+    # register A. Effectively, it can be said it does CP (HL) at every
+    # iteration. The result of that compare sets the HF flag. So,
+    # n = A - (HL) - HF.
+    #
+    #   SF, ZF, HF set by the hypothetical CP (HL)
+    #   YF = bit 1 of n
+    #   XF = bit 3 of n
+    #   PF = BC is not 0
+    #   NF = 1
+    #
+    # from The Undocumented Z80 Documented v0.91
+    preset:
+      regs:
+        a: 0x3b
+        b: 0x00
+        c: 0x01
+        h: 0x11
+        l: 0x11
+      mem:
+        0x1111: 0x3b
+    source: |
+      cpi
+      halt
+    regs:
+      a: 0x3b
+      b: 0x00
+      c: 0x00
+      h: 0x11
+      l: 0x12
+      f: 0x42
+      pc: 0x0003
+
+  - desc: cpi - sf, hf, yf, xf, pf
+    preset:
+      regs:
+        a: 0x00
+        b: 0x00
+        c: 0x02
+        h: 0x00
+        l: 0x10
+      mem:
+        0x0010: 0x01
+    source: |
+      cpi
+      halt
+    regs:
+      a: 0x00
+      b: 0x00
+      c: 0x01
+      h: 0x00
+      l: 0x11
+      f: 0xbe
+      pc: 0x0003
+
   - desc: "push rr"
     source: |
       ld sp, 0x1000

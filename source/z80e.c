@@ -841,11 +841,17 @@ static zu8 ldir(z80e* z80) {
 }
 
 static zu8 cpi(z80e* z80) {
-  z80->state.tmp = read_byte_at(z80, hl(z80));
-  set_hf(z80, u8_half_borrow(reg(a), z80->state.tmp));
-  reg(a) = reg(a) - z80->state.tmp;
-  set_sf(z80, u8_negative(reg(a)));
-  set_zf(z80, reg(a) == 0);
+  zu8 byte = read_byte_at(z80, hl(z80));
+  set_hf(z80, borrow(4, reg(a), byte, 0));
+
+  byte = reg(a) - byte;
+  set_sf(z80, u8_negative(byte));
+  set_zf(z80, byte == 0);
+
+  byte -= hf(z80);
+  set_yf(z80, bit(byte, 1));
+  set_xf(z80, bit(byte, 3));
+
   set_hl(z80, hl(z80) + 1);
   set_bc(z80, bc(z80) - 1);
   set_pof(z80, bc(z80) != 0);
