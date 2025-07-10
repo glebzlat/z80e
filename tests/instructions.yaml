@@ -1208,30 +1208,6 @@ tests:
     mem:
       0x0010: 0x34
       0x0011: 0x12
-  - desc: ldi
-    source: |
-      ld hl, 0x1111
-      ld de, 0x2222
-      ld bc, 7
-      ld a, 0x88
-      ld (hl), a
-      ld a, 0x66
-      ld (de), a
-      ldi
-      halt
-    regs:
-      a: 0x66
-      b: 0x00
-      c: 0x06
-      d: 0x22
-      e: 0x23
-      h: 0x11
-      l: 0x12
-      f: 0x04
-      pc: 0x0012
-    mem:
-      0x1111: 0x88
-      0x2222: 0x88
   - desc: test pipeline - preset registers
     preset:
       regs:
@@ -1320,6 +1296,155 @@ tests:
       b: 0x66
       c: 0x33
       pc: 0x0007
+  - desc: ldi - xf, pvf
+    # The LDI/LDIR/LDD/LDDR instructions affect the flags in a strange way. At
+    # every iteration, a byte is copied. Take that byte and add the value of
+    # register A to it. Call that value n. Now, the flags are:
+    #
+    #   YF = bit 1 of n
+    #   XF = bit 3 of n
+    #
+    # from The Undocumented Z80 Documented v0.91
+    preset:
+      regs:
+        b: 0x00
+        c: 0x07
+        d: 0x22
+        e: 0x22
+        h: 0x11
+        l: 0x11
+      mem:
+        0x1111: 0x88
+        0x2222: 0x66
+    source: |
+      ldi
+      halt
+    regs:
+      b: 0x00
+      c: 0x06
+      d: 0x22
+      e: 0x23
+      h: 0x11
+      l: 0x12
+      f: 0x0c
+      pc: 0x0003
+    mem:
+      0x2222: 0x88
+  - desc: ldi - set xf, reset pvf, n/a sf, zf, cf
+    preset:
+      regs:
+        b: 0x00
+        c: 0x01
+        d: 0x22
+        e: 0x22
+        h: 0x11
+        l: 0x11
+        f: 0xc5  # 1100 0101 -> 1100 1001
+      mem:
+        0x1111: 0x88
+        0x2222: 0x55
+    source: |
+      ldi
+      halt
+    regs:
+      b: 0x00
+      c: 0x00
+      d: 0x22
+      e: 0x23
+      h: 0x11
+      l: 0x12
+      f: 0xc9
+      pc: 0x0003
+    mem:
+      0x2222: 0x88
+  - desc: ldi - set yf, reset xf
+    # n = a + byte = 0x0a + 0x88 = 0x92
+    # yf = bit 1 of 0x92 = 1
+    # xf = bit 3 of 0x92 = 0
+    # f: 0000 1000 -> 0010 0000
+    preset:
+      regs:
+        a: 0x0a
+        b: 0x00
+        c: 0x01
+        d: 0x22
+        e: 0x22
+        h: 0x11
+        l: 0x11
+        f: 0x08
+      mem:
+        0x1111: 0x88
+        0x2222: 0x55
+    source: |
+      ldi
+      halt
+    regs:
+      a: 0x0a
+      b: 0x00
+      c: 0x00
+      d: 0x22
+      e: 0x23
+      h: 0x11
+      l: 0x12
+      f: 0x20
+      pc: 0x0003
+  - desc: ldir
+    preset:
+      regs:
+        b: 0x00
+        c: 0x03
+        d: 0x22
+        e: 0x22
+        h: 0x11
+        l: 0x11
+      mem:
+        0x1111: 0x88
+        0x1112: 0x36
+        0x1113: 0xa5
+        0x2222: 0x66
+        0x2223: 0x59
+        0x2224: 0xc5
+    source: |
+      ldir
+      halt
+    regs:
+      b: 0x00
+      c: 0x00
+      d: 0x22
+      e: 0x25
+      h: 0x11
+      l: 0x14
+      pc: 0x0003
+    mem:
+      0x2222: 0x88
+      0x2223: 0x36
+      0x2224: 0xa5
+  - desc: ldd - xf, pvf
+    preset:
+      regs:
+        b: 0x00
+        c: 0x07
+        d: 0x22
+        e: 0x22
+        h: 0x11
+        l: 0x11
+      mem:
+        0x1111: 0x88
+        0x2222: 0x55
+    source: |
+      ldd
+      halt
+    regs:
+      b: 0x00
+      c: 0x06
+      d: 0x22
+      e: 0x21
+      h: 0x11
+      l: 0x10
+      f: 0x0c
+      pc: 0x0003
+    mem:
+      0x2222: 0x88
   - desc: "push rr"
     source: |
       ld sp, 0x1000

@@ -783,11 +783,14 @@ static void jp(z80e* z80, u8 cond) {
 }
 
 static u8 ldd(z80e* z80) {
-  write_byte_at(z80, read_byte_at(z80, hl(z80)), de(z80));
+  u8 byte = read_byte_at(z80, hl(z80));
+  write_byte_at(z80, byte, de(z80));
   set_de(z80, de(z80) - 1);
   set_hl(z80, hl(z80) - 1);
   set_bc(z80, bc(z80) - 1);
+  set_yf(z80, bit(reg(a) + byte, 1));
   set_hf(z80, 0);
+  set_xf(z80, bit(reg(a) + byte, 3));
   set_pof(z80, bc(z80) != 0);
   set_nf(z80, 0);
   return 16;
@@ -806,11 +809,14 @@ static u16 pop(z80e* z80) {
 }
 
 static u8 ldi(z80e* z80) {
-  write_byte_at(z80, read_byte_at(z80, hl(z80)), de(z80));
+  u8 byte = read_byte_at(z80, hl(z80));
+  write_byte_at(z80, byte, de(z80));
   set_de(z80, de(z80) + 1);
   set_hl(z80, hl(z80) + 1);
   set_bc(z80, bc(z80) - 1);
+  set_yf(z80, bit(reg(a) + byte, 1));
   set_hf(z80, 0);
+  set_xf(z80, bit(reg(a) + byte, 3));
   set_pof(z80, bc(z80) != 0);
   set_nf(z80, 0);
   return 16;
