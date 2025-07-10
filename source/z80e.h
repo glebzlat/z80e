@@ -1,23 +1,23 @@
 #ifndef Z80E_H
 #define Z80E_H
 
-#include <stdint.h>
+typedef char zi8;
+typedef unsigned char zu8;
+typedef short zi16;
+typedef unsigned short zu16;
+typedef int zi32;
+typedef unsigned int zu32;
 
-typedef uint8_t (*z80e_memread_fn_t)(uint32_t addr, void* ctx);
-typedef void (*z80e_memwrite_fn_t)(uint32_t addr, uint8_t byte, void* ctx);
-typedef uint8_t (*z80e_ioread_fn_t)(uint32_t addr, void* ctx);
-typedef void (*z80e_iowrite_fn_t)(uint32_t addr, uint8_t byte, void* ctx);
-
-typedef int8_t i8;
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
+typedef zu8 (*z80e_memread_fn_t)(zu32 addr, void* ctx);
+typedef void (*z80e_memwrite_fn_t)(zu32 addr, zu8 byte, void* ctx);
+typedef zu8 (*z80e_ioread_fn_t)(zu32 addr, void* ctx);
+typedef void (*z80e_iowrite_fn_t)(zu32 addr, zu8 byte, void* ctx);
 
 typedef struct {
-  u8 a;
-  u8 b;
-  u8 d;
-  u8 h;
+  zu8 a;
+  zu8 b;
+  zu8 d;
+  zu8 h;
 
   /* Flag register
    *
@@ -32,15 +32,15 @@ typedef struct {
    * - N   - Add/Subtract flag
    * - C   - Carry flag
    */
-  u8 f;
+  zu8 f;
 
-  u8 c;
-  u8 e;
-  u8 l;
+  zu8 c;
+  zu8 e;
+  zu8 l;
 } z80e_registers;
 
 typedef struct {
-  u16 tmp;
+  zu16 tmp;
 } z80e_state;
 
 typedef enum {
@@ -55,18 +55,18 @@ struct z80e {
     z80e_registers alt;
     z80e_registers* cur; /*< Points either to main or alt register set */
 
-    u8 i;   /*< Interrupt Vector */
-    u8 r;   /*< Memory Refresh */
-    u16 ix; /*< Index Register X */
-    u16 iy; /*< Index Register Y */
-    u16 sp; /*< Stack Pointer */
-    u16 pc; /*< Program Counter */
+    zu8 i;   /*< Interrupt Vector */
+    zu8 r;   /*< Memory Refresh */
+    zu16 ix; /*< Index Register X */
+    zu16 iy; /*< Index Register Y */
+    zu16 sp; /*< Stack Pointer */
+    zu16 pc; /*< Program Counter */
   } reg;
 
-  u8 cur_reg_set; /*< 0 - main, 1 - alt */
-  u8 halt;
-  u8 iff;
-  u8 int_mode;
+  zu8 cur_reg_set; /*< 0 - main, 1 - alt */
+  zu8 halt;
+  zu8 iff;
+  zu8 int_mode;
   z80e_state state;
 
   z80e_memread_fn_t memread;
@@ -90,7 +90,7 @@ typedef struct z80e z80e;
 typedef struct z80e_config z80e_config;
 
 void z80e_init(z80e* z80, z80e_config* config);
-int8_t z80e_instruction(z80e* z80);
+zi8 z80e_instruction(z80e* z80);
 
 void z80e_halt(z80e* z80);
 int z80e_get_halt(z80e* z80);
