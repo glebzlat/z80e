@@ -65,11 +65,19 @@ def run_test_program(
     io: bytes,
     *,
     preset_regs: Optional[dict[str, int]] = None,
-    dump_points: Optional[dict[int, dict[str, int]]] = None
+    dump_points: Optional[dict[int, dict[str, int]]] = None,
+    memory_map: Optional[dict[str, int]] = None
 ) -> list[dict[str, int]]:
+    # Fill the file to 64KiB with zeros.
+    memory_array: bytearray = bytearray(memory) + bytearray(b"\0" * (MEMFILE_SIZE_BYTES - len(memory)))
+    if memory_map is not None:
+        # Preset memory contents.
+        for addr, byte in memory_map.items():
+            assert addr < len(memory_array)
+            memory_array[addr] = byte
+    memory = bytes(memory_array)
+
     with open(MEMFILE, "wb") as fout:
-        # Fill the file to 64KiB with zeros.
-        memory += b"\0" * (MEMFILE_SIZE_BYTES - len(memory))
         fout.write(memory)
     with open(IOFILE, "wb") as fout:
         fout.write(io)

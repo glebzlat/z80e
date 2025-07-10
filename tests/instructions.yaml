@@ -16,10 +16,18 @@
 #         <register-name>: <int>
 #         ...
 #
-#     # Optional: register values that are set before start of the program.
+#     # Optional: conditions set before the program is executed.
 #     preset:
-#       <register-name>: <int>
-#       ...
+#       # Optional: preset registers.
+#       regs:
+#         <register-name>: <int>
+#         ...
+#
+#       # Optional: memory address -> value mapping. Set memory values at
+#       #   given addresses.
+#       mem:
+#         <addr>: <int>
+#         ...
 #
 #     regs:
 #       # Registers not mentioned in regs must be equal to 0x00.
@@ -1226,27 +1234,28 @@ tests:
       0x2222: 0x88
   - desc: test pipeline - preset registers
     preset:
-      a: 0x01
-      b: 0x02
-      c: 0x03
-      d: 0x04
-      e: 0x05
-      f: 0x06
-      h: 0x07
-      l: 0x08
-      a_alt: 0x11
-      b_alt: 0x12
-      c_alt: 0x13
-      d_alt: 0x14
-      e_alt: 0x15
-      f_alt: 0x16
-      h_alt: 0x17
-      l_alt: 0x18
-      i: 0x09
-      r: 0x0a
-      ix: 0x100b
-      iy: 0x200c
-      sp: 0x300e
+      regs:
+        a: 0x01
+        b: 0x02
+        c: 0x03
+        d: 0x04
+        e: 0x05
+        f: 0x06
+        h: 0x07
+        l: 0x08
+        a_alt: 0x11
+        b_alt: 0x12
+        c_alt: 0x13
+        d_alt: 0x14
+        e_alt: 0x15
+        f_alt: 0x16
+        h_alt: 0x17
+        l_alt: 0x18
+        i: 0x09
+        r: 0x0a
+        ix: 0x100b
+        iy: 0x200c
+        sp: 0x300e
     source: |
       halt
     regs:
@@ -1272,6 +1281,20 @@ tests:
       iy: 0x200c
       sp: 0x300e
       pc: 0x0001
+  - desc: test pipeline - preset memory
+    preset:
+      mem:
+        0x0010: 0x88
+        0x0011: 0x89
+        0x0012: 0x8a
+    source: |
+      halt
+    regs:
+      pc: 0x0001
+    mem:
+      0x0010: 0x88
+      0x0011: 0x89
+      0x0012: 0x8a
   - desc: test pipeline - dump points
     inspect:
       0x0002:
