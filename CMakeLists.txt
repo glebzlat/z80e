@@ -10,7 +10,11 @@ add_library(${PROJECT_NAME} STATIC ${PROJECT_SOURCE_DIR}/source/z80e.c)
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/source)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wall -Wpedantic)
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+set(VENV_DIR ${PROJECT_SOURCE_DIR}/.env)
+set(VENV_STAMP ${VENV_DIR}/env.dev.stamp)
+set(DEV_REQUIREMENTS ${PROJECT_SOURCE_DIR}/requirements.dev.txt)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR Z80E_TESTING)
     message(STATUS "Enable debug symbols")
     target_compile_options(${PROJECT_NAME} PUBLIC -g)
 endif()
