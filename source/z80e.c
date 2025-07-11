@@ -844,7 +844,7 @@ static zu8 cpi(z80e* z80) {
   zu8 byte = read_byte_at(z80, hl(z80));
   set_hf(z80, borrow(4, reg(a), byte, 0));
 
-  byte = reg(a) - byte;
+  z80->state.tmp = byte = reg(a) - byte;
   set_sf(z80, u8_negative(byte));
   set_zf(z80, byte == 0);
 
@@ -861,20 +861,27 @@ static zu8 cpi(z80e* z80) {
 
 static zu8 cpir(z80e* z80) {
   cpi(z80);
-  if (bc(z80) == 0 || reg(a) == z80->state.tmp) {
+  if (bc(z80) == 0 || z80->state.tmp == 0) {
     return 16;
   }
+  z80->reg.pc -= 2;
   return 21;
 }
 
 static zu8 cpd(z80e* z80) {
-  z80->state.tmp = read_byte_at(z80, hl(z80));
-  set_hf(z80, u8_half_borrow(reg(a), z80->state.tmp));
-  reg(a) -= z80->state.tmp;
+  zu8 byte = read_byte_at(z80, hl(z80));
+  set_hf(z80, borrow(4, reg(a), byte, 0));
+
+  z80->state.tmp = byte = reg(a) - byte;
+  set_sf(z80, u8_negative(byte));
+  set_zf(z80, byte == 0);
+
+  byte -= hf(z80);
+  set_yf(z80, bit(byte, 1));
+  set_xf(z80, bit(byte, 3));
+
   set_hl(z80, hl(z80) - 1);
   set_bc(z80, bc(z80) - 1);
-  set_sf(z80, u8_negative(reg(a)));
-  set_zf(z80, reg(a) == 0);
   set_pof(z80, bc(z80) != 0);
   set_nf(z80, 1);
   return 16;
@@ -885,6 +892,7 @@ static zu8 cpdr(z80e* z80) {
   if (bc(z80) == 0 || reg(a) == z80->state.tmp) {
     return 16;
   }
+  z80->reg.pc -= 2;
   return 21;
 }
 

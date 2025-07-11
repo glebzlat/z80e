@@ -1538,6 +1538,118 @@ tests:
       f: 0xbe
       pc: 0x0003
 
+  - desc: cpir
+    preset:
+      regs:
+        a: 0xf3
+        b: 0x00
+        c: 0x07
+        h: 0x11
+        l: 0x11
+      mem:
+        0x1111: 0x52
+        0x1112: 0x22
+        0x1113: 0xf3
+    source: |
+      cpir
+      halt
+    regs:
+      a: 0xf3
+      b: 0x00
+      c: 0x04
+      h: 0x11
+      l: 0x14
+      f: 0x46
+      pc: 0x0003
+
+  - desc: cpd - zf
+    preset:
+      regs:
+        a: 0x3b
+        b: 0x00
+        c: 0x01
+        h: 0x11
+        l: 0x11
+      mem:
+        0x1111: 0x3b
+    source: |
+      cpd
+      halt
+    regs:
+      a: 0x3b
+      b: 0x00
+      c: 0x00
+      h: 0x11
+      l: 0x10
+      f: 0x42
+      pc: 0x0003
+
+  - desc: cpd - hf
+    preset:
+      regs:
+        a: 0x10
+        b: 0x00
+        c: 0x01
+        h: 0x00
+        l: 0x10
+      mem:
+        0x0010: 0x0f
+    source: |
+      cpd
+      halt
+    regs:
+      a: 0x10
+      b: 0x00
+      c: 0x00
+      h: 0x00
+      l: 0x0f
+      f: 0x12
+      pc: 0x0003
+
+  - desc: cpd - yf, hf, xf
+    preset:
+      regs:
+        a: 0x10
+        b: 0x00
+        c: 0x01
+        h: 0x00
+        l: 0x10
+      mem:
+        0x0010: 0x01
+    source: |
+      cpd
+      halt
+    regs:
+      a: 0x10
+      b: 0x00
+      c: 0x00
+      h: 0x00
+      l: 0x0f
+      f: 0x3a
+      pc: 0x0003
+
+  - desc: cpd - zf, pvf
+    preset:
+      regs:
+        a: 0x01
+        b: 0x00
+        c: 0x02
+        h: 0x00
+        l: 0x10
+      mem:
+        0x0010: 0x01
+    source: |
+      cpd
+      halt
+    regs:
+      a: 0x01
+      b: 0x00
+      c: 0x01
+      h: 0x00
+      l: 0x0f
+      f: 0x46
+      pc: 0x0003
+
   - desc: "push rr"
     source: |
       ld sp, 0x1000
