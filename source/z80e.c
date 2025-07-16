@@ -46,6 +46,7 @@ static zu8 cpdr(z80e* z80);
 static zu8 jr(z80e* z80, zu8 cond);
 static void daa(z80e* z80);
 static void cpl(z80e* z80);
+static void neg(z80e* z80);
 static void ccf(z80e* z80);
 static void scf(z80e* z80);
 
@@ -551,7 +552,7 @@ static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
   case 0xa9: return cpd(z80); /* cpd */
   case 0xb9: return cpdr(z80); /* cpdr */
 
-  case 0x44: reg(a) = -reg(a); return 8; /* neg */
+  case 0x44: neg(z80); return 8; return 8; /* neg */
   case 0x46: z80->int_mode = 0; return 8; /* im 0 */
   case 0x56: z80->int_mode = 1; return 8; /* im 1 */
   case 0x5e: z80->int_mode = 2; return 8; /* im 2 */
@@ -889,7 +890,7 @@ static zu8 cpd(z80e* z80) {
 
 static zu8 cpdr(z80e* z80) {
   cpd(z80);
-  if (bc(z80) == 0 || reg(a) == z80->state.tmp) {
+  if (bc(z80) == 0 || z80->state.tmp == 0) {
     return 16;
   }
   z80->reg.pc -= 2;
@@ -973,6 +974,18 @@ static void cpl(z80e* z80) {
   reg(a) = ~reg(a);
   set_yf(z80, bit(reg(a), 5));
   set_hf(z80, 1);
+  set_xf(z80, bit(reg(a), 3));
+  set_nf(z80, 1);
+}
+
+static void neg(z80e* z80) {
+  set_hf(z80, borrow(4, 0, reg(a), 0));
+  set_pof(z80, reg(a) == 0x80);
+  set_cf(z80, reg(a) != 0);
+  reg(a) = -reg(a);
+  set_sf(z80, u8_negative(reg(a)));
+  set_zf(z80, reg(a) == 0);
+  set_yf(z80, bit(reg(a), 5));
   set_xf(z80, bit(reg(a), 3));
   set_nf(z80, 1);
 }

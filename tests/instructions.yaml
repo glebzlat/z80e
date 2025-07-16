@@ -1206,6 +1206,7 @@ tests:
       a: 0x05
       f: 0x15
       pc: 0x0004
+
   - desc: cpl
     source: |
       ld a, 0x2a
@@ -1215,6 +1216,7 @@ tests:
       a: 0xd5
       f: 0x12
       pc: 0x0004
+
   - desc: cpl - yf, xf
     source: |
       ld a, 0x96
@@ -1224,6 +1226,7 @@ tests:
       a: 0x69
       f: 0x3a
       pc: 0x0004
+
   - desc: cpl - n/a sf, pf, cf
     source: |
       dec b
@@ -1235,6 +1238,7 @@ tests:
       b: 0xff
       f: 0x97
       pc: 0x0005
+
   - desc: cpl - n/a zf
     source: |
       ld b, 0x01
@@ -1247,6 +1251,36 @@ tests:
       b: 0x00
       f: 0x72
       pc: 0x0007
+
+  - desc: neg
+    source: |
+      ld a, 0x01
+      neg
+      halt
+    regs:
+      a: 0xff
+      f: 0xbb
+      pc: 0x0005
+
+  - desc: neg - zf
+    source: |
+      ld a, 0x00
+      neg
+      halt
+    regs:
+      f: 0x42
+      pc: 0x0005
+
+  - desc: neg - pvf
+    source: |
+      ld a, 0x80
+      neg
+      halt
+    regs:
+      a: 0x80
+      f: 0x87
+      pc: 0x0005
+
   - desc: ccf
     source: |
       ld a, 0x80
@@ -1647,6 +1681,30 @@ tests:
       c: 0x01
       h: 0x00
       l: 0x0f
+      f: 0x46
+      pc: 0x0003
+
+  - desc: cpdr
+    preset:
+      regs:
+        a: 0xf3
+        b: 0x00
+        c: 0x07
+        h: 0x11
+        l: 0x18
+      mem:
+        0x1116: 0xf3
+        0x1117: 0x00
+        0x1118: 0x52
+    source: |
+      cpdr
+      halt
+    regs:
+      a: 0xf3
+      b: 0x00
+      c: 0x04
+      h: 0x11
+      l: 0x15
       f: 0x46
       pc: 0x0003
 
