@@ -265,6 +265,52 @@ tests:
       pc: 0x000b
     mem:
       0x1234: 0x10
+
+  - desc: ld r, (iz+d)
+    preset:
+      regs:
+        ix: 0x0100
+        iy: 0x0100
+      mem:
+        0x0108: 0xfa
+        0x00f8: 0xed
+    source: |
+      ld a, (ix+8)
+      ld b, (iy-8)
+      halt
+    regs:
+      ix: 0x0100
+      iy: 0x0100
+      a: 0xfa
+      b: 0xed
+      pc: 0x0007
+
+  - desc: ld (iz+d), r
+    preset:
+      regs:
+        c: 0x1c
+        ix: 0x3100
+    source: |
+      ld (ix+6), c
+      halt
+    regs:
+      c: 0x1c
+      ix: 0x3100
+      pc: 0x0004
+
+  - desc: ld (iz+d), n
+    preset:
+      regs:
+        ix: 0x1010
+    source: |
+      ld (ix+1), 0x15
+      halt
+    regs:
+      ix: 0x1010
+      pc: 0x0005
+    mem:
+      0x1011: 0x15
+
   - desc: ld (nn), hl
     source: |
       ld hl, 0x1234
@@ -277,6 +323,7 @@ tests:
     mem:
       0x0001: 0x34
       0x0002: 0x12
+
   - desc: ld sp, hl
     source: |
       ld hl, 0x1234
@@ -287,6 +334,66 @@ tests:
       l: 0x34
       sp: 0x1234
       pc: 0x0005
+
+  - desc: ld iz, nn
+    source: |
+      ld ix, 0x1234
+      ld iy, 0x4321
+      halt
+    regs:
+      ix: 0x1234
+      iy: 0x4321
+      pc: 0x0009
+
+  - desc: ld iz, (nn)
+    preset:
+      mem:
+        0x0100: 0x20
+        0x0101: 0x10
+        0x0200: 0x40
+        0x0201: 0x30
+    source: |
+      ld ix, (0x0100)
+      ld iy, (0x0200)
+      halt
+    regs:
+      ix: 0x1020
+      iy: 0x3040
+      pc: 0x0009
+
+  - desc: ld (nn), iz
+    preset:
+      regs:
+        ix: 0x1122
+        iy: 0x3344
+    source: |
+      ld (0x0015), ix
+      ld (0x0020), iy
+      halt
+    regs:
+      ix: 0x1122
+      iy: 0x3344
+      pc: 0x0009
+    mem:
+      0x0015: 0x22
+      0x0016: 0x11
+      0x0020: 0x44
+      0x0021: 0x33
+
+  - desc: ld (nn), ix
+    preset:
+      regs:
+        ix: 0x5a30
+    source: |
+      ld (0x4392), ix
+      halt
+    regs:
+      ix: 0x5a30
+      pc: 0x0005
+    mem:
+      0x4392: 0x30
+      0x4393: 0x5a
+
   - desc: ex de, hl
     source: |
       ld hl, 0x1020
@@ -323,6 +430,7 @@ tests:
       l: 0x6a
       l_alt: 0x6b
       pc: 0x0014
+
   - desc: ex (sp), hl
     source: |
       ld de, 0x1234
@@ -336,6 +444,26 @@ tests:
       l: 0x34
       sp: 0xfffe
       pc: 0x0006
+
+  - desc: ex (sp), ix
+    preset:
+      regs:
+        ix: 0x3988
+        sp: 0x0100
+      mem:
+        0x0100: 0x90
+        0x0101: 0x48
+    source: |
+      ex (sp), ix
+      halt
+    regs:
+      ix: 0x4890
+      sp: 0x0100
+      pc: 0x0003
+    mem:
+      0x0100: 0x88
+      0x0101: 0x39
+
   - desc: add a, r - no flags
     source: |
       ld b, 0x1
@@ -346,6 +474,7 @@ tests:
       b: 0x01
       f: 0x00
       pc: 0x0004
+
   - desc: add a, r - sf
     source: |
       ld b, 0x80
@@ -356,6 +485,7 @@ tests:
       b: 0x80
       f: 0x80
       pc: 0x0004
+
   - desc: add a, r - zf
     source: |
       add a, b
@@ -363,6 +493,7 @@ tests:
     regs:
       f: 0x40
       pc: 0x0002
+
   - desc: add a, r - yf
     source: |
       ld a, 0x10
@@ -374,6 +505,7 @@ tests:
       b: 0x10
       f: 0x20
       pc: 0x0006
+
   - desc: add a, r - hf
     source: |
       ld a, 0xd
@@ -385,6 +517,7 @@ tests:
       b: 0x03
       f: 0x10
       pc: 0x0006
+
   - desc: add a, r - xf
     source: |
       ld a, 0x04
@@ -396,6 +529,7 @@ tests:
       b: 0x04
       f: 0x08
       pc: 0x0006
+
   - desc: dec a
     source: |
       ld a, 0x10
@@ -405,6 +539,7 @@ tests:
       a: 0x0f
       f: 0x1a
       pc: 0x0004
+
   - desc: add a, r - pvf, cf
     source: |
       ld a, 0xff
@@ -416,6 +551,7 @@ tests:
       b: 0x02
       f: 0x15
       pc: 0x0006
+
   - desc: add a, r - all registers
     source: |
       ld b, 0x1
@@ -441,6 +577,7 @@ tests:
       l: 0x06
       f: 0x10
       pc: 0x0013
+
   - desc: add a, n
     source: |
       ld a, 0xff
@@ -450,6 +587,7 @@ tests:
       a: 0x3f
       f: 0x2d
       pc: 0x0005
+
   - desc: add a, (hl)
     source: |
       ld hl, 0x0100
@@ -462,6 +600,7 @@ tests:
       h: 0x01
       f: 0x30
       pc: 0x0009
+
   - desc: add a, n - overflow
     source: |
       ld a, 0xff
@@ -471,6 +610,23 @@ tests:
       a: 0x10
       f: 0x15
       pc: 0x0005
+
+  - desc: add a, (ix+d)
+    preset:
+      regs:
+        a: 0x11
+        ix: 0x1000
+      mem:
+        0x1005: 0x22
+    source: |
+      add a, (ix+5)
+      halt
+    regs:
+      a: 0x33
+      f: 0x20
+      ix: 0x1000
+      pc: 0x0004
+
   - desc: adc a, r - cf = 1
     source: |
       ld a, 0xff
@@ -483,6 +639,7 @@ tests:
       b: 0x16
       f: 0x20
       pc: 0x0008
+
   - desc: adc a, r - cf = 0
     source: |
       ld a, 0x10
@@ -494,6 +651,7 @@ tests:
       b: 0x16
       f: 0x20
       pc: 0x0006
+
   - desc: adc a, r - edge case
     source: |
       ld a, 0xff
@@ -506,6 +664,7 @@ tests:
       b: 0xff
       f: 0x15
       pc: 0x0008
+
   - desc: adc a, n
     source: |
       ld a, 0xff
@@ -516,6 +675,7 @@ tests:
       a: 0x01
       f: 0x15
       pc: 0x0007
+
   - desc: adc a, (hl)
     source: |
       ld hl, 0x0100
@@ -529,6 +689,24 @@ tests:
       h: 0x01
       f: 0x20
       pc: 0x000b
+
+  - desc: adc a, (ix+d)
+    preset:
+      regs:
+        a: 0x16
+        f: 0x01
+        ix: 0x001f
+      mem:
+        0x0026: 0x10
+    source: |
+      adc a, (ix+7)
+      halt
+    regs:
+      a: 0x27
+      f: 0x20
+      ix: 0x001f
+      pc: 0x0004
+
   - desc: sub r - sf, yf, hf, xf, nf, cf
     source: |
       ld b, 0x01
@@ -539,6 +717,7 @@ tests:
       b: 0x01
       f: 0xbf
       pc: 0x0004
+
   - desc: sub r - zf, nf
     source: |
       ld b, 0x01
@@ -550,6 +729,7 @@ tests:
       b: 0x01
       f: 0x42
       pc: 0x0006
+
   - desc: sub r - all registers
     source: |
       ld a, 0x16
@@ -576,6 +756,7 @@ tests:
       l: 0x06
       f: 0x02
       pc: 0x0015
+
   - desc: sub n
     source: |
       ld a, 0x10
@@ -585,6 +766,7 @@ tests:
       a: 0x0a
       f: 0x1a
       pc: 0x0005
+
   - desc: sub (hl)
     source: |
       ld hl, 0x1234
@@ -598,6 +780,27 @@ tests:
       l: 0x34
       f: 0x22
       pc: 0x0009
+
+  - desc: sub (iz+d)
+    preset:
+      regs:
+        a: 0x20
+        ix: 0x0100
+        iy: 0x0100
+      mem:
+        0x00f9: 0x02
+        0x0107: 0x03
+    source: |
+      sub (ix-7)
+      sub (iy+7)
+      halt
+    regs:
+      a: 0x1b
+      f: 0x0a
+      ix: 0x0100
+      iy: 0x0100
+      pc: 0x0007
+
   - desc: sbc a, r - cf = 1
     source: |
       ld b, 0x05
@@ -609,6 +812,7 @@ tests:
       b: 0x05
       f: 0x02
       pc: 0x0006
+
   - desc: sbc a, r
     source: |
       sub 0xea  ; cf = 1, a = 0x16
@@ -618,6 +822,7 @@ tests:
       a: 0x15
       f: 0x02
       pc: 0x0004
+
   - desc: sbc a, r - cf = 0
     source: |
       ld b, 0x01
@@ -628,6 +833,7 @@ tests:
       b: 0x01
       f: 0xbf
       pc: 0x0004
+
   - desc: sbc a, r - edge case
   # Interesting case. I expected sbc to perform a - b - 1, but what it seems sbc
   # actually does is a - (b + 1):
@@ -645,6 +851,7 @@ tests:
       b: 0xff
       f: 0xaa
       pc: 0x0006
+
   - desc: sbc a, n
     source: |
       sub 0xea
@@ -654,6 +861,7 @@ tests:
       a: 0x10
       f: 0x02
       pc: 0x0005
+
   - desc: sbc a, (hl)
     source: |
       ld hl, 0x1234
@@ -667,6 +875,24 @@ tests:
       l: 0x34
       f: 0xaa
       pc: 0x0009
+
+  - desc: sbc a, (ix+d)
+    preset:
+      regs:
+        a: 0x16
+        f: 0x01
+        ix: 0x4532
+      mem:
+        0x4530: 0x05
+    source: |
+      sbc a, (ix-2)
+      halt
+    regs:
+      a: 0x10
+      f: 0x02
+      ix: 0x4532
+      pc: 0x0004
+
   - desc: and r - hf, pf
     source: |
       ld a, 0xc3
@@ -678,6 +904,7 @@ tests:
       b: 0x7a
       f: 0x14
       pc: 0x0006
+
   - desc: and r - zf
     source: |
       ld a, 0x04
@@ -688,6 +915,7 @@ tests:
       b: 0x08
       f: 0x54
       pc: 0x0006
+
   - desc: and r - sf, yf, xf
     source: |
       ld a, 0xbc
@@ -699,6 +927,7 @@ tests:
       b: 0xa8
       f: 0xb8
       pc: 0x0006
+
   - desc: and n
     source: |
       ld a, 0x62
@@ -708,6 +937,7 @@ tests:
       a: 0x42
       f: 0x14
       pc: 0x0005
+
   - desc: and (hl)
     source: |
       ld a, 0x7c
@@ -720,6 +950,27 @@ tests:
       h: 0x01
       f: 0x14
       pc: 0x0009
+
+  - desc: and (iz+d)
+    preset:
+      regs:
+        a: 0x7b
+        ix: 0x0100
+        iy: 0x0100
+      mem:
+        0x00f2: 0x69
+        0x010e: 0x38
+    source: |
+      and (ix+0xe)
+      and (iy-0xe)
+      halt
+    regs:
+      a: 0x28
+      f: 0x3c
+      ix: 0x0100
+      iy: 0x0100
+      pc: 0x0007
+
   - desc: or r - xf, pf
     source: |
       ld a, 0x12
@@ -1708,7 +1959,7 @@ tests:
       f: 0x46
       pc: 0x0003
 
-  - desc: "push rr"
+  - desc: push rr
     source: |
       ld sp, 0x1000
       ld hl, 0x1234
@@ -1722,7 +1973,29 @@ tests:
     mem:
       0xfff: 0x12
       0xffe: 0x34
-  - desc: "pop rr"
+
+  - desc: push iz
+    preset:
+      regs:
+        ix: 0x3576
+        iy: 0x1977
+        sp: 0x0104
+    source: |
+      push ix
+      push iy
+      halt
+    regs:
+      ix: 0x3576
+      iy: 0x1977
+      sp: 0x0100
+      pc: 0x0005
+    mem:
+      0x0103: 0x35
+      0x0102: 0x76
+      0x0101: 0x19
+      0x0100: 0x77
+
+  - desc: pop rr
     source: |
       ld sp, 0x1000
       ld de, 0x1234
@@ -1740,3 +2013,21 @@ tests:
       0xfff: 0x12
       0xffe: 0x34
 
+  - desc: pop iz
+    preset:
+      regs:
+        sp: 0x1000
+      mem:
+        0x1000: 0x55
+        0x1001: 0x33
+        0x1002: 0x44
+        0x1003: 0x22
+    source: |
+      pop ix
+      pop iy
+      halt
+    regs:
+      ix: 0x3355
+      iy: 0x2244
+      sp: 0x1004
+      pc: 0x0005

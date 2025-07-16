@@ -125,7 +125,6 @@ inline static int u16_byte_carry(zu16 a, zu16 b) { return carry(8, a, b, 0); }
 
 static zu8 read_byte(z80e* z80);
 static zu8 read_byte_at(z80e* z80, zu16 addr);
-static zu8 read_byte_offs(z80e* z80, zi8 offset);
 static zu16 read_word(z80e* z80);
 static zu16 read_word_at(z80e* z80, zu16 addr);
 static void write_byte(z80e* z80, zu8 byte);
@@ -436,7 +435,6 @@ static zi8 z80e_execute(z80e* z80, zu8 opcode) {
 
     /* clang-format on */
 
-
   case 0x07: /* rlca */
     set_cf(z80, (reg(a) & 0x80) != 0);
     reg(a) = (reg(a) << 1) | cf(z80);
@@ -584,6 +582,7 @@ static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
 static zi8 z80e_execute_ddfd(z80e* z80, zu16* rr, zu8 opcode) {
   switch (opcode) {
     /* clang-format off */
+  case 0x7e: reg(a) = read_byte_at(z80, *rr + (zi8)read_byte(z80)); return 19; /* ld a, (iz+d) */
   case 0x46: reg(b) = read_byte_at(z80, *rr + (zi8)read_byte(z80)); return 19; /* ld b, (iz+d) */
   case 0x4e: reg(c) = read_byte_at(z80, *rr + (zi8)read_byte(z80)); return 19; /* ld c, (iz+d) */
   case 0x56: reg(d) = read_byte_at(z80, *rr + (zi8)read_byte(z80)); return 19; /* ld d, (iz+d) */
@@ -599,7 +598,6 @@ static zi8 z80e_execute_ddfd(z80e* z80, zu16* rr, zu8 opcode) {
   case 0x75: write_byte_at(z80, reg(l), *rr + (zi8)read_byte(z80)); return 19; /* ld (iz+d), l */
   case 0x77: write_byte_at(z80, reg(a), *rr + (zi8)read_byte(z80)); return 19; /* ld (iz+d), a */
 
-  case 0x36: write_byte_at(z80, read_byte_offs(z80, 2), *rr + (zi8)read_byte(z80)); return 19; /* ld (iz+d), n */
   case 0x22: write_word_at(z80, *rr, read_word(z80)); return 20; /* ld (nn), iz */
   case 0xf9: z80->reg.sp = *rr; return 10; /* ld sp, iz */
 
@@ -621,7 +619,12 @@ static zi8 z80e_execute_ddfd(z80e* z80, zu16* rr, zu8 opcode) {
   case 0x35: dec_addr(z80, *rr + (zi8)read_byte(z80)); return 23; /* dec (iz+d) */
     /* clang-format on */
 
-  case 0xe3: /* ex (sp), iz */
+  case 0x36: /* ld (iz+d), n */
+    z80->state.tmp = read_byte(z80);
+    write_byte_at(z80, read_byte(z80), *rr + (zi8)z80->state.tmp);
+    return 19;
+
+  case 0xe3:   /* ex (sp), iz */
     z80->state.tmp = read_word_at(z80, z80->reg.sp);
     write_word_at(z80, *rr, z80->reg.sp);
     *rr = z80->state.tmp;
@@ -1030,8 +1033,6 @@ static zu8 read_byte(z80e* z80) {
 }
 
 static zu8 read_byte_at(z80e* z80, zu16 addr) { return z80->memread(addr, z80->ctx); }
-
-static zu8 read_byte_offs(z80e* z80, zi8 offset) { return read_byte_at(z80, z80->reg.pc + offset); }
 
 static zu16 read_word(z80e* z80) {
   zu8 lsb = z80->memread(z80->reg.pc, z80->ctx);
