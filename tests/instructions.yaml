@@ -2031,3 +2031,142 @@ tests:
       iy: 0x2244
       sp: 0x1004
       pc: 0x0005
+
+  - desc: jp nn
+    source: |
+      .org 0x0000
+          jp 0x0100
+      .org 0x0100
+          halt
+    regs:
+      pc: 0x0101
+
+  - desc: jp nz = true
+    preset:
+      regs:
+        f: 0x00
+    source: |
+      .org 0x0000
+          jp nz, 0x0100
+      .org 0x0100
+          halt
+    regs:
+      pc: 0x0101
+
+  - desc: jp nz = false
+    preset:
+      regs:
+        f: 0x40
+    source: |
+      .org 0x0000
+          jp nz, 0x0100
+          halt
+      .org 0x0100
+          halt
+    regs:
+      f: 0x40
+      pc: 0x0004
+
+  - desc: jp nc = true
+    preset:
+      regs:
+        f: 0x00
+    source: |
+      .org 0x0000
+          jp nc, 0x0100
+      .org 0x0100
+          halt
+    regs:
+      pc: 0x0101
+
+  - desc: jp nc = false
+    preset:
+      regs:
+        f: 0x01
+    source: |
+      .org 0x0000
+          jp nc, 0x0100
+          halt
+      .org 0x0100
+          halt
+    regs:
+      f: 0x01
+      pc: 0x0004
+
+  - desc: jp p
+    preset:
+      regs:
+        f: 0x00
+    source: |
+      .org 0x0000
+          jp p, 0x0100
+      .org 0x0100
+          halt
+    regs:
+      pc: 0x0101
+
+  - desc: not jp p
+    preset:
+      regs:
+        f: 0x80
+    source: |
+      .org 0x0000
+          jp p, 0x0100
+          halt
+      .org 0x0100
+          halt
+    regs:
+      f: 0x80
+      pc: 0x0004
+
+  - desc: jp m
+    preset:
+      regs:
+        f: 0x80
+    source: |
+      .org 0x0000
+          jp m, 0x0100
+      .org 0x0100
+          halt
+    regs:
+      f: 0x80
+      pc: 0x0101
+
+  - desc: jr e - positive
+    source: |
+      .org 0x0000
+          jr 0x10
+          ld a, 0x10
+      .org 0x0010
+          ld a, 0x20
+          halt
+    regs:
+      a: 0x20
+      pc: 0x0013
+
+  - desc: jr e - negative
+    source: |
+      .org 0x0000
+          jr 0x20
+      .org 0x0010
+          ld a, 0x20
+          halt
+      .org 0x0020
+          jr -0x10
+    regs:
+      a: 0x20
+      pc: 0x0013
+
+  - desc: jr c, e
+    preset:
+      regs:
+        f: 0x01
+        pc: 0x0480
+    source: |
+      .org 0x047c
+          halt
+      .org 0x0480
+          jr c, -4
+    regs:
+      f: 0x01
+      pc: 0x047d

@@ -783,6 +783,8 @@ static zu16 dec16(z80e* z80, zu16 v) {
 static void jp(z80e* z80, zu8 cond) {
   if (cond) {
     z80->reg.pc = read_word(z80);
+  } else {
+    read_word(z80);
   }
 }
 
@@ -910,7 +912,7 @@ static zu8 is_even_parity(zu8 v) {
 
 static zu8 jr(z80e* z80, zu8 cond) {
   if (cond) {
-    z80->reg.pc += read_byte(z80);
+    z80->reg.pc += (zi8)read_byte(z80);
     return 12;
   }
   z80->reg.pc += 1;
