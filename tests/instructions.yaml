@@ -2170,3 +2170,47 @@ tests:
     regs:
       f: 0x01
       pc: 0x047d
+
+  - desc: djnz e
+    source: |
+      .org 0x0010
+      start:
+          ld b, 20       ; set up counter
+          ld hl, input   ; set up input buffer pointer
+          ld de, output  ; set up output buffer pointer
+      loop:
+          ld a, (hl)     ; get next byte from input buffer
+          ld (de), a     ; store in output buffer
+          cp '\0'        ; is it a null terminator?
+          jr z, done     ; yes -> finished
+          inc hl         ; increment pointers
+          inc de
+          djnz loop      ; loop back if n bytes < 80
+      done:
+          halt
+      .org 0x0100
+      input:
+      .db "Hello world\0"
+      .org 0x0200
+      output:
+    regs:
+      b: 0x09
+      d: 0x02
+      e: 0x0b
+      f: 0x42
+      h: 0x01
+      l: 0x0b
+      pc: 0x0023
+    mem:
+      0x0200: 72  # 'H'
+      0x0201: 101 # 'e'
+      0x0202: 108 # 'l'
+      0x0203: 108 # 'l'
+      0x0204: 111 # 'o'
+      0x0205: 32  # ' '
+      0x0206: 119 # 'w'
+      0x0207: 111 # 'o'
+      0x0208: 114 # 'r'
+      0x0209: 108 # 'l'
+      0x020a: 100 # 'd'
+      0x020b: 0
