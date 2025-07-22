@@ -50,6 +50,13 @@ static void neg(z80e* z80);
 static void ccf(z80e* z80);
 static void scf(z80e* z80);
 
+static void rlc(z80e* z80, zu8* r);
+static void rl(z80e* z80, zu8* r);
+static void rrc(z80e* z80, zu8* r);
+static void rr(z80e* z80, zu8* r);
+static void sla(z80e* z80, zu8* r);
+static void sra(z80e* z80, zu8* r);
+
 static zu8 is_even_parity(zu8 v);
 
 /* Sign flag */
@@ -144,6 +151,7 @@ static void set_de(z80e* z80, zu16 val);
 static void set_sp(z80e* z80, zu16 val);
 static void set_af(z80e* z80, zu16 val);
 
+static zi8 z80e_execute_cb(z80e* z80, zu8 opcode);
 static zi8 z80e_execute_ed(z80e* z80, zu8 opcode);
 static zi8 z80e_execute_ddfd(z80e* z80, zu16* rr, zu8 opcode);
 
@@ -449,6 +457,8 @@ static zi8 z80e_execute(z80e* z80, zu8 opcode) {
     set_nf(z80, 0);
     set_hf(z80, 0);
     reg(a) = (reg(a) >> 1) | (cf(z80) << 7);
+    set_yf(z80, bit(reg(a), 5));
+    set_xf(z80, bit(reg(a), 3));
     return 4;
 
   case 0xeb: /* ex de, hl */
@@ -511,6 +521,9 @@ static zi8 z80e_execute(z80e* z80, zu8 opcode) {
     write_byte_at(z80, tmp8, hl(z80));
     return 11;
 
+  case 0xcb:
+    return z80e_execute_cb(z80, read_byte(z80));
+
   case 0xed:
     return z80e_execute_ed(z80, read_byte(z80));
 
@@ -523,6 +536,87 @@ static zi8 z80e_execute(z80e* z80, zu8 opcode) {
   default:
     return Z80E_INVALID_OPCODE;
   };
+}
+
+static zi8 z80e_execute_cb(z80e* z80, zu8 opcode) {
+  zu8 tmp;
+
+  switch (opcode) {
+    /* clang-format off */
+  case 0x07: rlc(z80, &reg(a)); return 8; /* rlc a */
+  case 0x00: rlc(z80, &reg(b)); return 8; /* rlc b */
+  case 0x01: rlc(z80, &reg(c)); return 8; /* rlc c */
+  case 0x02: rlc(z80, &reg(d)); return 8; /* rlc d */
+  case 0x03: rlc(z80, &reg(e)); return 8; /* rlc e */
+  case 0x04: rlc(z80, &reg(h)); return 8; /* rlc h */
+  case 0x05: rlc(z80, &reg(l)); return 8; /* rlc l */
+
+  case 0x17: rl(z80, &reg(a)); return 8; /* rl a */
+  case 0x10: rl(z80, &reg(b)); return 8; /* rl b */
+  case 0x11: rl(z80, &reg(c)); return 8; /* rl c */
+  case 0x12: rl(z80, &reg(d)); return 8; /* rl d */
+  case 0x13: rl(z80, &reg(e)); return 8; /* rl e */
+  case 0x14: rl(z80, &reg(h)); return 8; /* rl h */
+  case 0x15: rl(z80, &reg(l)); return 8; /* rl l */
+
+  case 0x0f: rrc(z80, &reg(a)); return 8; /* rrc a */
+  case 0x08: rrc(z80, &reg(b)); return 8; /* rrc b */
+  case 0x09: rrc(z80, &reg(c)); return 8; /* rrc c */
+  case 0x0a: rrc(z80, &reg(d)); return 8; /* rrc d */
+  case 0x0b: rrc(z80, &reg(e)); return 8; /* rrc e */
+  case 0x0c: rrc(z80, &reg(h)); return 8; /* rrc h */
+  case 0x0d: rrc(z80, &reg(l)); return 8; /* rrc l */
+
+  case 0x1f: rr(z80, &reg(a)); return 8; /* rr a */
+  case 0x18: rr(z80, &reg(b)); return 8; /* rr b */
+  case 0x19: rr(z80, &reg(c)); return 8; /* rr c */
+  case 0x1a: rr(z80, &reg(d)); return 8; /* rr d */
+  case 0x1b: rr(z80, &reg(e)); return 8; /* rr e */
+  case 0x1c: rr(z80, &reg(h)); return 8; /* rr h */
+  case 0x1d: rr(z80, &reg(l)); return 8; /* rr l */
+
+  case 0x27: sla(z80, &reg(a)); return 8; /* sla a */
+  case 0x20: sla(z80, &reg(b)); return 8; /* sla b */
+  case 0x21: sla(z80, &reg(c)); return 8; /* sla c */
+  case 0x22: sla(z80, &reg(d)); return 8; /* sla d */
+  case 0x23: sla(z80, &reg(e)); return 8; /* sla e */
+  case 0x24: sla(z80, &reg(h)); return 8; /* sla h */
+  case 0x25: sla(z80, &reg(l)); return 8; /* sla l */
+    /* clang-format on */
+
+  case 0x06: /* rlc (hl) */
+    tmp = read_byte_at(z80, hl(z80));
+    rlc(z80, &tmp);
+    write_byte_at(z80, tmp, hl(z80));
+    return 15;
+
+  case 0x16: /* rl (hl) */
+    tmp = read_byte_at(z80, hl(z80));
+    rl(z80, &tmp);
+    write_byte_at(z80, tmp, hl(z80));
+    return 15;
+
+  case 0x0e: /* rrc (hl) */
+    tmp = read_byte_at(z80, hl(z80));
+    rrc(z80, &tmp);
+    write_byte_at(z80, tmp, hl(z80));
+    return 15;
+
+  case 0x1e: /* rr (hl) */
+    tmp = read_byte_at(z80, hl(z80));
+    rr(z80, &tmp);
+    write_byte_at(z80, tmp, hl(z80));
+    return 15;
+
+  case 0x26: /* sla (hl) */
+    tmp = read_byte_at(z80, hl(z80));
+    sla(z80, &tmp);
+    write_byte_at(z80, tmp, hl(z80));
+    return 15;
+
+  default:
+    return Z80E_INVALID_OPCODE;
+  }
 }
 
 static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
@@ -624,7 +718,7 @@ static zi8 z80e_execute_ddfd(z80e* z80, zu16* rr, zu8 opcode) {
     write_byte_at(z80, read_byte(z80), *rr + (zi8)z80->state.tmp);
     return 19;
 
-  case 0xe3:   /* ex (sp), iz */
+  case 0xe3: /* ex (sp), iz */
     z80->state.tmp = read_word_at(z80, z80->reg.sp);
     write_word_at(z80, *rr, z80->reg.sp);
     *rr = z80->state.tmp;
@@ -1004,6 +1098,71 @@ static void scf(z80e* z80) {
   set_hf(z80, 0);
   set_nf(z80, 0);
   set_cf(z80, 1);
+}
+
+static void rlc(z80e* z80, zu8* r) {
+  set_cf(z80, bit(*r, 7));
+  *r = (*r << 1) | cf(z80);
+  set_yf(z80, bit(*r, 5));
+  set_hf(z80, 0);
+  set_xf(z80, bit(*r, 3));
+  set_pof(z80, is_even_parity(*r));
+  set_nf(z80, 0);
+}
+
+static void rl(z80e* z80, zu8* r) {
+  z80->state.tmp = bit(*r, 7);
+  *r = (*r << 1) | cf(z80);
+  set_cf(z80, z80->state.tmp);
+  set_yf(z80, bit(*r, 5));
+  set_hf(z80, 0);
+  set_xf(z80, bit(*r, 3));
+  set_pof(z80, is_even_parity(*r));
+  set_nf(z80, 0);
+}
+
+static void rrc(z80e* z80, zu8* r) {
+  *r = *r >> 1;
+  set_cf(z80, bit(*r, 0));
+  set_yf(z80, bit(*r, 5));
+  set_hf(z80, 0);
+  set_xf(z80, bit(*r, 3));
+  set_pof(z80, is_even_parity(*r));
+  set_nf(z80, 0);
+}
+
+static void rr(z80e* z80, zu8* r) {
+  z80->state.tmp = bit(*r, 0);
+  *r = (*r >> 1) | (cf(z80) << 7);
+  set_cf(z80, z80->state.tmp);
+  set_yf(z80, bit(*r, 5));
+  set_hf(z80, 0);
+  set_xf(z80, bit(*r, 3));
+  set_pof(z80, is_even_parity(*r));
+  set_nf(z80, 0);
+}
+
+static void sla(z80e* z80, zu8* r) {
+  set_cf(z80, bit(*r, 7));
+  *r = *r << 1;
+  set_sf(z80, bit(*r, 7));
+  set_zf(z80, *r == 0);
+  set_yf(z80, bit(*r, 5));
+  set_hf(z80, 0);
+  set_xf(z80, bit(*r, 3));
+  set_nf(z80, 0);
+}
+
+static void sra(z80e* z80, zu8* r) {
+  zu8 tmp = *r & 0x80;
+  set_cf(z80, bit(*r, 0));
+  *r = (*r >> 1) | tmp;
+  set_sf(z80, bit(*r, 7));
+  set_zf(z80, *r == 0);
+  set_yf(z80, bit(*r, 5));
+  set_hf(z80, 0);
+  set_xf(z80, bit(*r, 3));
+  set_nf(z80, 0);
 }
 
 static void set_bc(z80e* z80, zu16 val) {

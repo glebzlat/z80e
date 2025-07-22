@@ -1390,7 +1390,33 @@ tests:
       a: 0x44
       f: 0x00
       pc: 0x0004
-  - desc: "rra - CF -> bit 7"
+
+  - desc: rrca
+    preset:
+      regs:
+        a: 0x11
+        f: 0x00
+    source: |
+      rrca
+      halt
+    regs:
+      a: 0x88
+      f: 0x09
+      pc: 0x0002
+
+  - desc: rrca - yf, xf
+    preset:
+      regs:
+        a: 0x50
+    source: |
+      rrca
+      halt
+    regs:
+      a: 0x28
+      f: 0x28
+      pc: 0x0002
+
+  - desc: rra - CF -> bit 7
     source: |
       ld a, 0x22
       rra  ; c = 0, a = 0x11
@@ -1400,7 +1426,94 @@ tests:
       a: 0x88
       f: 0x09
       pc: 0x0005
-  - desc: "jr nz, d - condition false"
+
+  - desc: rlc r
+    preset:
+      regs:
+        b: 0x88
+    source: |
+      rlc b
+      halt
+    regs:
+      b: 0x11
+      f: 0x05
+      pc: 0x0003
+
+  - desc: rlc a - yf, xf
+    preset:
+      regs:
+        a: 0x14
+        f: 0x01
+    source: |
+      rlc a
+      halt
+    regs:
+      a: 0x28
+      f: 0x2c
+      pc: 0x0003
+
+  - desc: rlc (hl)
+    preset:
+      regs:
+        h: 0x28
+        l: 0x28
+      mem:
+        0x2828: 0x88
+    source: |
+      rlc (hl)
+      halt
+    regs:
+      h: 0x28
+      l: 0x28
+      f: 0x05
+      pc: 0x0003
+    mem:
+      0x2828: 0x11
+
+  - desc: rl r - cf -> 0, bit 0 -> 1
+    preset:
+      regs:
+        a: 0x11
+        f: 0x01
+    source: |
+      rl a
+      halt
+    regs:
+      a: 0x23
+      f: 0x20
+      pc: 0x0003
+
+  - desc: rl r -> cf -> 1, bit 0 -> 0, yf, xf, pvf
+    preset:
+      regs:
+        b: 0x94
+    source: |
+      rl b
+      halt
+    regs:
+      b: 0x28
+      f: 0x2d
+      pc: 0x0003
+
+  - desc: rl (hl)
+    preset:
+      regs:
+        h: 0x34
+        l: 0x34
+      mem:
+        0x3434: 0x8f
+    source: |
+      rl (hl)
+      halt
+    regs:
+      h: 0x34
+      l: 0x34
+      f: 0x0d
+      pc: 0x0003
+    mem:
+      0x3434: 0x1e
+
+  - desc: jr nz, d - condition false
     source: |
       ld a, 0x01
       dec a
@@ -1410,7 +1523,8 @@ tests:
       a: 0x00
       f: 0x42
       pc: 0x0006
-  - desc: "jr nz, d - condition true"
+
+  - desc: jr nz, d - condition true
     source: |
       .org 0x0000
           ld a, 0x00
@@ -1421,6 +1535,7 @@ tests:
     regs:
       a: 0x01
       pc: 0x0014
+
   - desc: "daa - a = 0x00 in (0x00, 0x99), HNC = 000, add 0x00"
     source: |
       ld a, 0x00
