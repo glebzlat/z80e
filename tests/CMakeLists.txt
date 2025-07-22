@@ -15,7 +15,8 @@ add_custom_command(
 add_custom_command(
     OUTPUT ${VENV_STAMP}
     DEPENDS ${VENV_DIR}
-    COMMAND ${Python3_EXECUTABLE} -m pip install -r ${DEV_REQUIREMENTS}
+    COMMAND ${Python3_EXECUTABLE} -m pip --python ${VENV_DIR}/bin/python
+        install -r ${DEV_REQUIREMENTS}
         --upgrade --report=${VENV_STAMP}
 )
 
