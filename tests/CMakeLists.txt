@@ -7,6 +7,8 @@ target_link_libraries(z80test z80e utils)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
+set(PYTHON3_ENV_EXECUTABLE ${VENV_DIR}/bin/python3)
+
 add_custom_command(
     OUTPUT ${VENV_DIR}
     COMMAND ${Python3_EXECUTABLE} -m venv ${VENV_DIR}
@@ -22,14 +24,14 @@ add_custom_command(
 
 add_custom_target(
     RunInstructionTest ALL
-    ${Python3_EXECUTABLE} -m unittest tests.test_instructions
+    ${PYTHON3_ENV_EXECUTABLE} -m unittest tests.test_instructions
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     DEPENDS ${VENV_STAMP}
 )
 
 add_custom_target(
     RunDAATest
-    ${Python3_EXECUTABLE} -m tests.test_daa
+    ${PYTHON3_ENV_EXECUTABLE} -m tests.test_daa
     DEPENDS ${VENV_STAMP}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 )
