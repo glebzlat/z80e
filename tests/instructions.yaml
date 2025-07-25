@@ -1513,6 +1513,77 @@ tests:
     mem:
       0x3434: 0x1e
 
+  - desc: rrc r
+    preset:
+      regs:
+        a: 0x31
+    source: |
+      rrc a
+      halt
+    regs:
+      a: 0x98
+      f: 0x89
+      pc: 0x0003
+
+  - desc: rrc r - zf, pvf
+    preset:
+      regs:
+        b: 0x00
+    source: |
+      rrc b
+      halt
+    regs:
+      a: 0x00
+      f: 0x44
+      pc: 0x0003
+
+  - desc: rrc (hl)
+    preset:
+      regs:
+        h: 0x01
+        l: 0x00
+      mem:
+        0x0100: 0x31
+    source: |
+      rrc (hl)
+      halt
+    regs:
+      h: 0x01
+      f: 0x89
+      pc: 0x0003
+    mem:
+      0x0100: 0x98
+
+  - desc: rr r - sf, yf, pvf
+    skip: due to the assembler error https://github.com/glebzlat/z80asm/issues/2
+    preset:
+      regs:
+        a: 0x40
+        f: 0x01
+    source: |
+      rr a
+      halt
+    regs:
+      f: 0xa4
+      a: 0xa0
+      pc: 0x0003
+
+  - desc: rr (hl)
+    preset:
+      regs:
+        h: 0x43
+        l: 0x43
+      mem:
+        0x4343: 0xdd
+    source: |
+      rr (hl)
+      halt
+    regs:
+      h: 0x43
+      l: 0x43
+      f: 0x29
+      pc: 0x0003
+
   - desc: jr nz, d - condition false
     source: |
       ld a, 0x01

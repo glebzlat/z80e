@@ -582,6 +582,8 @@ static zi8 z80e_execute_cb(z80e* z80, zu8 opcode) {
   case 0x23: sla(z80, &reg(e)); return 8; /* sla e */
   case 0x24: sla(z80, &reg(h)); return 8; /* sla h */
   case 0x25: sla(z80, &reg(l)); return 8; /* sla l */
+
+  case 0x28: sra(z80, &reg(b)); return 8; /* sra b */
     /* clang-format on */
 
   case 0x06: /* rlc (hl) */
@@ -611,6 +613,12 @@ static zi8 z80e_execute_cb(z80e* z80, zu8 opcode) {
   case 0x26: /* sla (hl) */
     tmp = read_byte_at(z80, hl(z80));
     sla(z80, &tmp);
+    write_byte_at(z80, tmp, hl(z80));
+    return 15;
+
+  case 0x2e: /* sra (hl) */
+    tmp = read_byte_at(z80, hl(z80));
+    sra(z80, &tmp);
     write_byte_at(z80, tmp, hl(z80));
     return 15;
 
@@ -1122,8 +1130,11 @@ static void rl(z80e* z80, zu8* r) {
 }
 
 static void rrc(z80e* z80, zu8* r) {
-  *r = *r >> 1;
-  set_cf(z80, bit(*r, 0));
+  zu8 tmp = bit(*r, 0);
+  *r = (*r >> 1) | (tmp << 7);
+  set_cf(z80, tmp);
+  set_sf(z80, bit(*r, 7));
+  set_zf(z80, *r == 0);
   set_yf(z80, bit(*r, 5));
   set_hf(z80, 0);
   set_xf(z80, bit(*r, 3));
@@ -1132,9 +1143,11 @@ static void rrc(z80e* z80, zu8* r) {
 }
 
 static void rr(z80e* z80, zu8* r) {
-  z80->state.tmp = bit(*r, 0);
+  zu8 tmp = bit(*r, 0);
   *r = (*r >> 1) | (cf(z80) << 7);
-  set_cf(z80, z80->state.tmp);
+  set_cf(z80, tmp);
+  set_sf(z80, bit(*r, 7));
+  set_zf(z80, *r == 0);
   set_yf(z80, bit(*r, 5));
   set_hf(z80, 0);
   set_xf(z80, bit(*r, 3));
