@@ -56,6 +56,7 @@ static void rrc(z80e* z80, zu8* r);
 static void rr(z80e* z80, zu8* r);
 static void sla(z80e* z80, zu8* r);
 static void sra(z80e* z80, zu8* r);
+static void srl(z80e* z80, zu8* r);
 
 static zu8 is_even_parity(zu8 v);
 
@@ -583,7 +584,21 @@ static zi8 z80e_execute_cb(z80e* z80, zu8 opcode) {
   case 0x24: sla(z80, &reg(h)); return 8; /* sla h */
   case 0x25: sla(z80, &reg(l)); return 8; /* sla l */
 
+  case 0x2f: sra(z80, &reg(a)); return 8; /* sra a */
   case 0x28: sra(z80, &reg(b)); return 8; /* sra b */
+  case 0x29: sra(z80, &reg(c)); return 8; /* sra c */
+  case 0x2a: sra(z80, &reg(d)); return 8; /* sra d */
+  case 0x2b: sra(z80, &reg(e)); return 8; /* sra e */
+  case 0x2c: sra(z80, &reg(h)); return 8; /* sra h */
+  case 0x2d: sra(z80, &reg(l)); return 8; /* sra l */
+
+  case 0x3f: srl(z80, &reg(a)); return 8; /* srl a */
+  case 0x38: srl(z80, &reg(b)); return 8; /* srl b */
+  case 0x39: srl(z80, &reg(c)); return 8; /* srl c */
+  case 0x3a: srl(z80, &reg(d)); return 8; /* srl d */
+  case 0x3b: srl(z80, &reg(e)); return 8; /* srl e */
+  case 0x3c: srl(z80, &reg(h)); return 8; /* srl h */
+  case 0x3d: srl(z80, &reg(l)); return 8; /* srl l */
     /* clang-format on */
 
   case 0x06: /* rlc (hl) */
@@ -619,6 +634,12 @@ static zi8 z80e_execute_cb(z80e* z80, zu8 opcode) {
   case 0x2e: /* sra (hl) */
     tmp = read_byte_at(z80, hl(z80));
     sra(z80, &tmp);
+    write_byte_at(z80, tmp, hl(z80));
+    return 15;
+
+  case 0x3e: /* srl (hl) */
+    tmp = read_byte_at(z80, hl(z80));
+    srl(z80, &tmp);
     write_byte_at(z80, tmp, hl(z80));
     return 15;
 
@@ -1163,6 +1184,7 @@ static void sla(z80e* z80, zu8* r) {
   set_yf(z80, bit(*r, 5));
   set_hf(z80, 0);
   set_xf(z80, bit(*r, 3));
+  set_pof(z80, is_even_parity(*r));
   set_nf(z80, 0);
 }
 
@@ -1175,6 +1197,19 @@ static void sra(z80e* z80, zu8* r) {
   set_yf(z80, bit(*r, 5));
   set_hf(z80, 0);
   set_xf(z80, bit(*r, 3));
+  set_pof(z80, is_even_parity(*r));
+  set_nf(z80, 0);
+}
+
+static void srl(z80e* z80, zu8* r) {
+  set_cf(z80, bit(*r, 0));
+  *r = *r >> 1;
+  set_sf(z80, bit(*r, 7));
+  set_zf(z80, *r == 0);
+  set_yf(z80, bit(*r, 5));
+  set_hf(z80, 0);
+  set_xf(z80, bit(*r, 3));
+  set_pof(z80, is_even_parity(*r));
   set_nf(z80, 0);
 }
 

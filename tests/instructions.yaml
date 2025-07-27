@@ -1584,6 +1584,107 @@ tests:
       f: 0x29
       pc: 0x0003
 
+  - desc: sla r
+    preset:
+      regs:
+        l: 0xb1
+    source: |
+      sla l
+      halt
+    regs:
+      l: 0x62
+      f: 0x21
+      pc: 0x0003
+
+  - desc: sla (hl)
+    preset:
+      regs:
+        h: 0x01
+        l: 0x10
+      mem:
+        0x0110: 0x74
+    source: |
+      sla (hl)
+      halt
+    regs:
+      h: 0x01
+      l: 0x10
+      f: 0xac
+      pc: 0x0003
+    mem:
+      0x0110: 0xe8
+
+  - desc: sra r
+    preset:
+      regs:
+        a: 0xb8
+    source: |
+      sra a
+      halt
+    regs:
+      a: 0xdc
+      f: 0x88
+      pc: 0x0003
+
+  - desc: sra r - pvf, cf
+    preset:
+      regs:
+        b: 0x6b
+    source: |
+      sra b
+      halt
+    regs:
+      b: 0x35
+      f: 0x25
+      pc: 0x0003
+
+  - desc: sra (hl)
+    preset:
+      regs:
+        h: 0x01
+        l: 0x10
+      mem:
+        0x0110: 0x50
+    source: |
+      sra (hl)
+      halt
+    regs:
+      h: 0x01
+      l: 0x10
+      f: 0x2c
+      pc: 0x0003
+    mem:
+      0x0110: 0x28
+
+  - desc: srl r
+    preset:
+      regs:
+        b: 0x8f
+    source: |
+      srl b
+      halt
+    regs:
+      b: 0x47
+      f: 0x05
+      pc: 0x0003
+
+  - desc: srl (hl)
+    preset:
+      regs:
+        h: 0x01
+        l: 0x00
+        f: 0x01
+      mem:
+        0x0100: 0x50
+    source: |
+      srl (hl)
+      halt
+    regs:
+      h: 0x01
+      l: 0x00
+      f: 0x2c
+      pc: 0x0003
+
   - desc: jr nz, d - condition false
     source: |
       ld a, 0x01
