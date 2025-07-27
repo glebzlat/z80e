@@ -1555,7 +1555,7 @@ tests:
       0x0100: 0x98
 
   - desc: rr r - sf, yf, pvf
-    skip: due to the assembler error https://github.com/glebzlat/z80asm/issues/2
+    # skip: due to the assembler error https://github.com/glebzlat/z80asm/issues/2
     preset:
       regs:
         a: 0x40
