@@ -61,6 +61,7 @@ struct z80e {
     zu16 iy; /*< Index Register Y */
     zu16 sp; /*< Stack Pointer */
     zu16 pc; /*< Program Counter */
+    zu8 u;   /*< Undocumented register */
   } reg;
 
   zu8 cur_reg_set; /*< 0 - main, 1 - alt */
