@@ -2619,3 +2619,22 @@ tests:
       0x0209: 108 # 'l'
       0x020a: 100 # 'd'
       0x020b: 0
+
+  - desc: call nn
+    preset:
+      regs:
+        pc: 0x1a47
+        sp: 0x3002
+    source: |
+      .org 0x1a47
+          call 0x2135
+      .org 0x2135
+          ld a, 0x10
+          halt
+    regs:
+      a: 0x10
+      sp: 0x3000
+      pc: 0x2138
+    mem:
+      0x3001: 0x1a
+      0x3000: 0x4a
