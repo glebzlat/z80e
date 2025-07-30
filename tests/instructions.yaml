@@ -1685,6 +1685,124 @@ tests:
       f: 0x2c
       pc: 0x0003
 
+  - desc: bit b, r
+    preset:
+      regs:
+        b: 0x10
+    source: |
+      bit 2, b
+      halt
+    regs:
+      b: 0x10
+      f: 0x54
+      pc: 0x0003
+
+  - desc: bit b, r - yf, unaffected cf
+    preset:
+      regs:
+        a: 0x20
+        f: 0x41
+    source: |
+      bit 5, a
+      halt
+    regs:
+      a: 0x20
+      f: 0x31
+      pc: 0x0003
+
+  - desc: bit b, r - reset nf
+    preset:
+      regs:
+        c: 0x08
+        f: 0x02
+    source: |
+      bit 4, c
+      halt
+    regs:
+      c: 0x08
+      f: 0x54
+      pc: 0x0003
+
+  - desc: bit b, r - xf
+    preset:
+      regs:
+        d: 0x08
+    source: |
+      bit 3, d
+      halt
+    regs:
+      d: 0x08
+      f: 0x18
+      pc: 0x0003
+
+  - desc: bit b, (hl)
+    preset:
+      regs:
+        h: 0x44
+        l: 0x44
+        f: 0x40
+      mem:
+        0x4444: 0x10
+    source: |
+      bit 4, (hl)
+      halt
+    regs:
+      h: 0x44
+      l: 0x44
+      f: 0x10
+      pc: 0x0003
+
+  - desc: set b, r
+    source: |
+      set 4, a
+      halt
+    regs:
+      a: 0x10
+      pc: 0x0003
+
+  - desc: set b, (hl)
+    preset:
+      regs:
+        h: 0x01
+        l: 0x01
+    source: |
+      set 3, (hl)
+      halt
+    regs:
+      h: 0x01
+      l: 0x01
+      pc: 0x0003
+    mem:
+      0x0101: 0x08
+
+  - desc: res b, r
+    preset:
+      regs:
+        d: 0x50
+    source: |
+      res 6, d
+      halt
+    regs:
+      d: 0x10
+      pc: 0x0003
+
+  - desc: res b, (hl)
+    preset:
+      regs:
+        h: 0x10
+        l: 0x01
+      mem:
+        0x1001: 0x03
+    source: |
+      res 0, (hl)
+      halt
+    regs:
+      h: 0x10
+      l: 0x01
+      pc: 0x0003
+    mem:
+      0x1001: 0x02
+
   - desc: jr nz, d - condition false
     source: |
       ld a, 0x01

@@ -1206,9 +1206,9 @@ static void srl(z80e* z80, zu8* r) {
 
 static void bit_op(z80e* z80, zu8 opcode, zu8 r) {
   zu8 bit_idx = (opcode >> 3) & 0x7;
-  zu8 res = r & bit_idx;
+  zu8 res = r & (1 << bit_idx);
   set_sf(z80, bit(res, 7));
-  set_zf(z80, !res);
+  set_zf(z80, res == 0);
   set_yf(z80, bit(res, 5));
   set_hf(z80, 1);
   set_xf(z80, bit(res, 3));
@@ -1229,12 +1229,12 @@ static void undoc_bit_hl(z80e* z80, zu8 opcode) {
 
 static void set_op(z80e* z80, zu8 opcode, zu8* r) {
   zu8 bit_idx = (opcode >> 3) & 0x7;
-  *r = (*r & bit_idx) != 0;
+  *r |= 1 << bit_idx;
 }
 
 static void res_op(z80e* z80, zu8 opcode, zu8* r) {
   zu8 bit_idx = (opcode >> 3) & 0x7;
-  *r = (*r & bit_idx) != 0;
+  *r &= ~(1 << bit_idx);
 }
 
 static void set_bc(z80e* z80, zu16 val) {
