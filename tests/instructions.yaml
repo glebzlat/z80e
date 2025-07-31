@@ -65,9 +65,11 @@ tests:
         r: 0x0a
         ix: 0x100b
         iy: 0x200c
+        pc: 0x0100
         sp: 0x300e
     source: |
-      halt
+      .org 0x0100
+          halt
     regs:
       a: 0x01
       b: 0x02
@@ -90,7 +92,7 @@ tests:
       ix: 0x100b
       iy: 0x200c
       sp: 0x300e
-      pc: 0x0001
+      pc: 0x0101
 
   - desc: test pipeline - preset memory
     preset:
@@ -2638,3 +2640,114 @@ tests:
     mem:
       0x3001: 0x1a
       0x3000: 0x4a
+
+  - desc: call nc, nn
+    preset:
+      regs:
+        pc: 0x1a47
+        sp: 0x3002
+    source: |
+      .org 0x1a47
+          call nc, 0x2132
+      .org 0x2132
+          ld a, 0x10
+          halt
+    regs:
+      a: 0x10
+      pc: 0x2135
+      sp: 0x3000
+    mem:
+      0x3001: 0x1a
+      0x3000: 0x4a
+
+  - desc: ret
+    preset:
+      regs:
+        pc: 0x3535
+        sp: 0x2000
+    source: |
+      .org 0x0000    ; catch
+          ld a, 0x10
+          halt
+      .org 0x18b5
+          ld a, 0x20
+          halt
+      .org 0x2000
+      .db 0xb5, 0x18
+      .org 0x3535
+          ret
+    regs:
+      a: 0x20
+      pc: 0x18b8
+      sp: 0x2002
+
+  - desc: ret m
+    preset:
+      regs:
+        f: 0x80
+        pc: 0x3535
+        sp: 0x2000
+    source: |
+      .org 0x0000    ; catch
+          ld a, 0x10
+          halt
+      .org 0x18b5
+          ld a, 0x20
+          halt
+      .org 0x2000
+      .db 0xb5, 0x18
+      .org 0x3535
+          ret m
+    regs:
+      a: 0x20
+      f: 0x80
+      pc: 0x18b8
+      sp: 0x2002
+
+  - desc: rst p
+    preset:
+      regs:
+        pc: 0x0100
+        sp: 0x2010
+    source: |
+      .org 0x0000     ; 2
+          ld b, 0x20
+          rst 0x10
+          halt
+      .org 0x0008     ; 4
+          rst 0x18
+          halt
+      .org 0x0010     ; 3
+          ld c, 0x30
+          rst 0x08
+          halt
+      .org 0x0018     ; 5
+          rst 0x30
+          halt
+      .org 0x0020     ; 8
+          ld d, 0x40
+          rst 0x38
+          halt
+      .org 0x0028     ; 7
+          rst 0x20
+          halt
+      .org 0x0030     ; 6
+          ld e, 0x50
+          rst 0x28
+          halt
+      .org 0x0038     ; 9
+          ld h, 0x60
+          halt
+      .org 0x0100     ; 1
+          ld a, 0x10
+          rst 0x00
+          halt
+    regs:
+      a: 0x10
+      b: 0x20
+      c: 0x30
+      d: 0x40
+      e: 0x50
+      h: 0x60
+      pc: 0x003b
+      sp: 0x2000
