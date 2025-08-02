@@ -26,6 +26,8 @@ static void inc_addr(z80e* z80, zu16 addr);
 static void dec_addr(z80e* z80, zu16 addr);
 
 static zu16 add16(z80e* z80, zu16 a, zu16 b);
+static zu16 adc16(z80e* z80, zu16 a, zu16 b, zu8 c);
+static zu16 sbc16(z80e* z80, zu16 a, zu16 b, zu8 c);
 static zu16 inc16(z80e* z80, zu16 v);
 static zu16 dec16(z80e* z80, zu16 v);
 
@@ -42,6 +44,8 @@ static zu8 cpi(z80e* z80);
 static zu8 cpir(z80e* z80);
 static zu8 cpd(z80e* z80);
 static zu8 cpdr(z80e* z80);
+static void rld(z80e* z80);
+static void rrd(z80e* z80);
 
 static zu8 jr(z80e* z80, zu8 cond);
 static void daa(z80e* z80);
@@ -450,6 +454,35 @@ static zi8 z80e_execute(z80e* z80, zu8 opcode) {
   case 0xf3: set_iff1(z80, 0); set_iff2(z80, 0); return 4; /* di */
   case 0xfb: set_iff1(z80, 1); set_iff2(z80, 1); return 4; /* ei */
 
+  case 0xcd: return call(z80, 1, read_word(z80)); /* call nn */
+  case 0xc4: return call(z80, !zf(z80), read_word(z80)); /* call nz, nn */
+  case 0xcc: return call(z80, zf(z80), read_word(z80)); /* call z, nn */
+  case 0xd4: return call(z80, !cf(z80), read_word(z80)); /* call nc, nn */
+  case 0xdc: return call(z80, cf(z80), read_word(z80)); /* call c, nn */
+  case 0xe4: return call(z80, !pof(z80), read_word(z80)); /* call po, nn */
+  case 0xec: return call(z80, pof(z80), read_word(z80)); /* call pe, nn */
+  case 0xf4: return call(z80, !sf(z80), read_word(z80)); /* call p, nn */
+  case 0xfc: return call(z80, sf(z80), read_word(z80)); /* call m, nn */
+
+  case 0xc9: return ret(z80, 1); /* ret */
+  case 0xc0: return ret(z80, !zf(z80)); /* ret nz */
+  case 0xc8: return ret(z80, zf(z80)); /* ret z */
+  case 0xd0: return ret(z80, !cf(z80)); /* ret nc */
+  case 0xd8: return ret(z80, cf(z80)); /* ret c */
+  case 0xe0: return ret(z80, !pof(z80)); /* ret po */
+  case 0xe8: return ret(z80, pof(z80)); /* ret pe */
+  case 0xf0: return ret(z80, !sf(z80)); /* ret p */
+  case 0xf8: return ret(z80, sf(z80)); /* ret m */
+
+  case 0xc7: return call(z80, 1, 0x0000); /* rst 0x00 */
+  case 0xcf: return call(z80, 1, 0x0008); /* rst 0x08 */
+  case 0xd7: return call(z80, 1, 0x0010); /* rst 0x10 */
+  case 0xdf: return call(z80, 1, 0x0018); /* rst 0x18 */
+  case 0xe7: return call(z80, 1, 0x0020); /* rst 0x20 */
+  case 0xef: return call(z80, 1, 0x0028); /* rst 0x28 */
+  case 0xf7: return call(z80, 1, 0x0030); /* rst 0x30 */
+  case 0xff: return call(z80, 1, 0x0038); /* rst 0x38 */
+
     /* clang-format on */
 
   case 0x07: /* rlca */
@@ -529,35 +562,6 @@ static zi8 z80e_execute(z80e* z80, zu8 opcode) {
     dec8(z80, &tmp8);
     write_byte_at(z80, tmp8, hl(z80));
     return 11;
-
-  case 0xcd: return call(z80, 1, read_word(z80));         /* call nn */
-  case 0xc4: return call(z80, !zf(z80), read_word(z80));  /* call nz, nn */
-  case 0xcc: return call(z80, zf(z80), read_word(z80));   /* call z, nn */
-  case 0xd4: return call(z80, !cf(z80), read_word(z80));  /* call nc, nn */
-  case 0xdc: return call(z80, cf(z80), read_word(z80));   /* call c, nn */
-  case 0xe4: return call(z80, !pof(z80), read_word(z80)); /* call po, nn */
-  case 0xec: return call(z80, pof(z80), read_word(z80));  /* call pe, nn */
-  case 0xf4: return call(z80, !sf(z80), read_word(z80));  /* call p, nn */
-  case 0xfc: return call(z80, sf(z80), read_word(z80));   /* call m, nn */
-
-  case 0xc9: return ret(z80, 1);         /* ret */
-  case 0xc0: return ret(z80, !zf(z80));  /* ret nz */
-  case 0xc8: return ret(z80, zf(z80));   /* ret z */
-  case 0xd0: return ret(z80, !cf(z80));  /* ret nc */
-  case 0xd8: return ret(z80, cf(z80));   /* ret c */
-  case 0xe0: return ret(z80, !pof(z80)); /* ret po */
-  case 0xe8: return ret(z80, pof(z80));  /* ret pe */
-  case 0xf0: return ret(z80, !sf(z80));  /* ret p */
-  case 0xf8: return ret(z80, sf(z80));   /* ret m */
-
-  case 0xc7: return call(z80, 1, 0x0000); /* rst 0x00 */
-  case 0xcf: return call(z80, 1, 0x0008); /* rst 0x08 */
-  case 0xd7: return call(z80, 1, 0x0010); /* rst 0x10 */
-  case 0xdf: return call(z80, 1, 0x0018); /* rst 0x18 */
-  case 0xe7: return call(z80, 1, 0x0020); /* rst 0x20 */
-  case 0xef: return call(z80, 1, 0x0028); /* rst 0x28 */
-  case 0xf7: return call(z80, 1, 0x0030); /* rst 0x30 */
-  case 0xff: return call(z80, 1, 0x0038); /* rst 0x38 */
 
   case 0xcb:
     return z80e_execute_cb(z80, read_byte(z80));
@@ -725,6 +729,21 @@ static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
   case 0x46: z80->int_mode = 0; return 8; /* im 0 */
   case 0x56: z80->int_mode = 1; return 8; /* im 1 */
   case 0x5e: z80->int_mode = 2; return 8; /* im 2 */
+
+  case 0x4a: set_hl(z80, adc16(z80, hl(z80), bc(z80), cf(z80))); return 15; /* adc hl, bc */
+  case 0x5a: set_hl(z80, adc16(z80, hl(z80), de(z80), cf(z80))); return 15; /* adc hl, de */
+  case 0x6a: set_hl(z80, adc16(z80, hl(z80), hl(z80), cf(z80))); return 15; /* adc hl, hl */
+  case 0x7a: set_hl(z80, adc16(z80, hl(z80), sp(z80), cf(z80))); return 15; /* adc hl, sp */
+
+  case 0x42: set_hl(z80, sbc16(z80, hl(z80), bc(z80), cf(z80)));; return 15; /* sbc hl, bc */
+  case 0x52: set_hl(z80, sbc16(z80, hl(z80), de(z80), cf(z80)));; return 15; /* sbc hl, de */
+  case 0x62: set_hl(z80, sbc16(z80, hl(z80), de(z80), cf(z80)));; return 15; /* sbc hl, hl */
+  case 0x72: set_hl(z80, sbc16(z80, hl(z80), sp(z80), cf(z80)));; return 15; /* sbc hl, sp */
+
+  case 0x6f: rld(z80); return 18; /* rld */
+  case 0x67: rrd(z80); return 18; /* rrd */
+
+  case 0x4d: ret(z80, 1); return 14; /* reti */
     /* clang-format on */
 
   case 0x57: /* ld a, i */
@@ -744,6 +763,11 @@ static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
     set_pof(z80, iff2(z80));
     set_nf(z80, 0);
     return 9;
+
+  case 0x45: /* retn */
+    ret(z80, 1);
+    set_iff1(z80, iff2(z80));
+    return 14;
 
   default:
     return Z80E_INVALID_OPCODE;
@@ -937,6 +961,32 @@ static zu16 add16(z80e* z80, zu16 a, zu16 b) {
   return res;
 }
 
+static zu16 adc16(z80e* z80, zu16 a, zu16 b, zu8 c) {
+  zu16 res = a + b + c;
+  set_sf(z80, bit(res, 15));
+  set_zf(z80, res == 0);
+  set_cf(z80, carry(16, a, b, c));
+  set_yf(z80, bit(res, 13));
+  set_hf(z80, carry(11, a, b, c));
+  set_xf(z80, bit(res, 11));
+  set_pof(z80, cf(z80));
+  set_nf(z80, 0); /* Add = 0/Subtract = 1 */
+  return res;
+}
+
+static zu16 sbc16(z80e* z80, zu16 a, zu16 b, zu8 c) {
+  zu16 res = a - b - c;
+  set_sf(z80, bit(res, 15));
+  set_zf(z80, res == 0);
+  set_yf(z80, bit(res, 13));
+  set_hf(z80, borrow(12, a, b, c));
+  set_xf(z80, bit(res, 11));
+  set_cf(z80, borrow(16, a, b, c));
+  set_pof(z80, cf(z80));
+  set_nf(z80, 1); /* Add = 0/Subtract = 1 */
+  return res;
+}
+
 static zu16 inc16(z80e* z80, zu16 v) {
   v += 1;
   set_yf_u16(z80, v);
@@ -1072,6 +1122,34 @@ static zu8 cpdr(z80e* z80) {
   z80->reg.pc -= 2;
   return 21;
 }
+
+#define rrdrld(code)                                                                                                   \
+  zu8 b = read_byte_at(z80, hl(z80)), tmp = reg(a);                                                                    \
+  code;                                                                                                                \
+  write_byte_at(z80, b, hl(z80));                                                                                      \
+  set_sf(z80, bit(reg(a), 7));                                                                                         \
+  set_zf(z80, reg(a) == 0);                                                                                            \
+  set_yf(z80, bit(reg(a), 5));                                                                                         \
+  set_hf(z80, 0);                                                                                                      \
+  set_xf(z80, bit(reg(a), 3));                                                                                         \
+  set_pof(z80, is_even_parity(reg(a)));                                                                                \
+  set_nf(z80, 0);
+
+static void rld(z80e* z80) {
+  rrdrld({
+    reg(a) = (reg(a) & 0xf0) | b >> 4;
+    b = (b << 4) | (tmp & 0x0f);
+  });
+}
+
+static void rrd(z80e* z80) {
+  rrdrld({
+    reg(a) = (reg(a) & 0xf0) | (b & 0x0f);
+    b = ((tmp & 0x0f) << 4) | (b >> 4);
+  });
+}
+
+#undef rrdrld
 
 static zu8 is_even_parity(zu8 v) {
   zu8 n = 0;
