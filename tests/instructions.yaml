@@ -1575,6 +1575,22 @@ tests:
     mem:
       0x2828: 0x11
 
+  - desc: rlc (ix+d)
+    preset:
+      regs:
+        ix: 0x1000
+      mem:
+        0x1002: 0x88
+    source: |
+      rlc (ix+2)
+      halt
+    regs:
+      ix: 0x1000
+      f: 0x05
+      pc: 0x0005
+    mem:
+      0x1002: 0x11
+
   - desc: rl r - cf -> 0, bit 0 -> 1
     preset:
       regs:
@@ -1790,6 +1806,22 @@ tests:
       f: 0x2c
       pc: 0x0003
 
+  - desc: srl (ix+d)
+    preset:
+      regs:
+        ix: 0x1000
+      mem:
+        0x1005: 0x91
+    source: |
+      srl (ix+5)
+      halt
+    regs:
+      ix: 0x1000
+      f: 0x0d
+      pc: 0x0005
+    mem:
+      0x1005: 0x48
+
   - desc: rld - yf
     preset:
       regs:
@@ -1951,6 +1983,23 @@ tests:
       f: 0x10
       pc: 0x0003
 
+  - desc: bit b, (ix+d)
+    preset:
+      regs:
+        ix: 0x1000
+        f: 0x40
+      mem:
+        0x0fff: 0x40
+    source: |
+      bit 6, (ix-1)
+      halt
+    regs:
+      ix: 0x1000
+      f: 0x10
+      pc: 0x0005
+    mem:
+      0x0fff: 0x40
+
   - desc: set b, r
     source: |
       set 4, a
@@ -1973,6 +2022,46 @@ tests:
       pc: 0x0003
     mem:
       0x0101: 0x08
+
+  - desc: set b, (ix+d); set b, (iy+d)
+    preset:
+      regs:
+        ix: 0x1000
+        iy: 0x2000
+      mem:
+        0x100f: 0x01
+        0x1ff1: 0x02
+    source: |
+      set 6, (ix+0xf)
+      set 7, (iy-0xf)
+      halt
+    regs:
+      ix: 0x1000
+      iy: 0x2000
+      pc: 0x0009
+    mem:
+      0x100f: 0x41
+      0x1ff1: 0x82
+
+  - desc: res b, (ix+d); res b, (iy+d)
+    preset:
+      regs:
+        ix: 0x1000
+        iy: 0x2000
+      mem:
+        0x0ff1: 0x11
+        0x200f: 0x22
+    source: |
+      res 4, (ix-0xf)
+      res 5, (iy+0xf)
+      halt
+    regs:
+      ix: 0x1000
+      iy: 0x2000
+      pc: 0x0009
+    mem:
+      0x0ff1: 0x01
+      0x200f: 0x02
 
   - desc: res b, r
     preset:
@@ -2644,6 +2733,30 @@ tests:
           halt
     regs:
       pc: 0x0101
+
+  - desc: jp (ix); jp (iy)
+    skip: "z80asm error: TypeError: unsupported format string passed to NoneType.__format__"
+    preset:
+      regs:
+        ix: 0x1000
+        iy: 0x2000
+    source: |
+      .org 0x0000
+          jp (ix)
+          halt
+      .org 0x1000
+          ld a, 0x10
+          jp (iy)
+          halt
+      .org 0x2000
+          ld b, 0x20
+          halt
+    regs:
+      a: 0x10
+      b: 0x20
+      ix: 0x1000
+      iy: 0x2000
+      pc: 0x2004
 
   - desc: jp nz = true
     preset:
