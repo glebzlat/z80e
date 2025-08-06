@@ -1676,7 +1676,6 @@ tests:
       0x0100: 0x98
 
   - desc: rr r - sf, yf, pvf
-    # skip: due to the assembler error https://github.com/glebzlat/z80asm/issues/2
     preset:
       regs:
         a: 0x40
@@ -2735,7 +2734,6 @@ tests:
       pc: 0x0101
 
   - desc: jp (ix); jp (iy)
-    skip: "z80asm error: TypeError: unsupported format string passed to NoneType.__format__"
     preset:
       regs:
         ix: 0x1000
@@ -2756,7 +2754,7 @@ tests:
       b: 0x20
       ix: 0x1000
       iy: 0x2000
-      pc: 0x2004
+      pc: 0x2003
 
   - desc: jp nz = true
     preset:

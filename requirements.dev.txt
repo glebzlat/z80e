@@ -1,2 +1,2 @@
 PyYAML==6.0.2
-z80asm @ git+https://github.com/glebzlat/z80asm.git@6ec29c7a928afebf2c04a67040cc868a87ba8628
+z80asm @ git+https://github.com/glebzlat/z80asm@3c0f39d35f2bfcbed4c6d6ecede9d44cbd169a44
