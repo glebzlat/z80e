@@ -10,8 +10,8 @@ typedef unsigned int zu32;
 
 typedef zu8 (*z80e_memread_fn_t)(zu32 addr, void* ctx);
 typedef void (*z80e_memwrite_fn_t)(zu32 addr, zu8 byte, void* ctx);
-typedef zu8 (*z80e_ioread_fn_t)(zu32 addr, void* ctx);
-typedef void (*z80e_iowrite_fn_t)(zu32 addr, zu8 byte, void* ctx);
+typedef zu8 (*z80e_ioread_fn_t)(zu16 addr, zu8 byte, void* ctx);
+typedef void (*z80e_iowrite_fn_t)(zu16 addr, zu8 byte, void* ctx);
 
 typedef struct {
   zu8 a;

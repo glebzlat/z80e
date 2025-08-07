@@ -151,6 +151,8 @@ static void write_byte(z80e* z80, zu8 byte);
 static void write_byte_at(z80e* z80, zu8 byte, zu16 addr);
 static void write_word(z80e* z80, zu16 word);
 static void write_word_at(z80e* z80, zu16 word, zu16 addr);
+static zu8 io_read_byte(z80e* z80, zu8 port, zu8 byte);
+static void io_write_byte(z80e* z80, zu8 port, zu8 byte);
 
 static inline zu16 bc(z80e* z80) { return (reg(b) << 8) | reg(c); }
 static inline zu16 hl(z80e* z80) { return (reg(h) << 8) | reg(l); }
@@ -561,6 +563,14 @@ static zi8 z80e_execute(z80e* z80, zu8 opcode) {
     tmp8 = read_byte_at(z80, hl(z80));
     dec8(z80, &tmp8);
     write_byte_at(z80, tmp8, hl(z80));
+    return 11;
+
+  case 0xdb: /* in a, (n) */
+    reg(a) = io_read_byte(z80, read_byte(z80), reg(a));
+    return 11;
+
+  case 0xd3: /* out (n), a */
+    io_write_byte(z80, read_byte(z80), reg(a));
     return 11;
 
   case 0xcb:
@@ -1440,4 +1450,14 @@ static void write_word(z80e* z80, zu16 word) {
 static void write_word_at(z80e* z80, zu16 word, zu16 addr) {
   write_byte_at(z80, word, addr);
   write_byte_at(z80, (word >> 8), addr + 1);
+}
+
+static zu8 io_read_byte(z80e* z80, zu8 port, zu8 byte) {
+  zu16 addr = ((zu16)byte << 8) | port;
+  return z80->ioread(addr, byte, z80->ctx);
+}
+
+static void io_write_byte(z80e* z80, zu8 port, zu8 byte) {
+  zu16 addr = ((zu16)byte << 8) | port;
+  z80->iowrite(addr, byte, z80->ctx);
 }
