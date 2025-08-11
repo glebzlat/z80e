@@ -55,27 +55,21 @@ class InstructionTestMeta(type):
                 registers: dict[str, int] = test["regs"]
                 mem: dict[int, int] = test.get("mem")
                 preset: dict[str, dict[str | int, int]] = test.get("preset")
-                inspect: dict[int, dict[str, int]] = test.get("inspect")
 
                 try:
                     listing, encoded = compile_asm(source)
-                    result_registers = run_test_program(
+                    result_registers, memory = run_test_program(
                         PROG,
                         encoded,
                         b"",
                         preset_regs=preset.get("regs") if preset else None,
-                        dump_points=inspect,
                         memory_map=preset.get("mem") if preset else None
                     )
 
-                    if inspect is not None:
-                        for i, (pc, regs) in enumerate(inspect.items()):
-                            self.compare_registers(result_registers[i], regs)
-
-                    self.compare_registers(result_registers[-1], registers)
+                    self.compare_registers(result_registers, registers)
 
                     if mem is not None:
-                        test_memory(self, mem)
+                        test_memory(self, memory, mem)
                 except AssertionError as e:
                     raise create_exception(test["desc"], e, listing) from None
                 except sp.TimeoutExpired:

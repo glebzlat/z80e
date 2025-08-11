@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <z80e.h>
+#include <z80/emulator.h>
 
 #include "utils/linkedlist.h"
 
@@ -36,8 +36,8 @@ typedef struct {
 
 void memwrite(uint32_t addr, uint8_t byte, void* ctx);
 uint8_t memread(uint32_t addr, void* ctx);
-void iowrite(uint32_t addr, uint8_t byte, void* ctx);
-uint8_t ioread(uint32_t addr, void* ctx);
+void iowrite(uint16_t addr, uint8_t byte, void* ctx);
+uint8_t ioread(uint16_t addr, uint8_t byte, void* ctx);
 
 int startswith(char const* s1, char const* s2);
 int parse_args(program_context* ctx, int argc, char** argv);
@@ -128,7 +128,7 @@ uint8_t memread(uint32_t addr, void* ctx) {
   return buf[0];
 }
 
-void iowrite(uint32_t addr, uint8_t byte, void* ctx) {
+void iowrite(uint16_t addr, uint8_t byte, void* ctx) {
   program_context* c = ctx;
   uint8_t buf[1];
   buf[0] = byte;
@@ -136,7 +136,7 @@ void iowrite(uint32_t addr, uint8_t byte, void* ctx) {
   fwrite(buf, 1, 1, c->iofile);
 }
 
-uint8_t ioread(uint32_t addr, void* ctx) {
+uint8_t ioread(uint16_t addr, uint8_t byte, void* ctx) {
   program_context* c = ctx;
   uint8_t buf[1];
   fseek(c->iofile, addr, SEEK_SET);

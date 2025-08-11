@@ -6,7 +6,7 @@ option(Z80E_TESTING "Compile tests" OFF)
 
 project(z80e LANGUAGES C)
 
-add_library(${PROJECT_NAME} STATIC ${PROJECT_SOURCE_DIR}/source/z80e.c)
+add_library(${PROJECT_NAME} STATIC ${PROJECT_SOURCE_DIR}/source/z80/emulator.c)
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/source)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wall -Wpedantic)
 

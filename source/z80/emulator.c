@@ -1,4 +1,4 @@
-#include "z80e.h"
+#include "emulator.h"
 
 #define MAXU8 ((u8) - 1)
 #define MAXI8 ((i8) - 129)

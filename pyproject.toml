@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "z80py"
+version = "0.0.1"
+authors = [{name = "Gleb Zlatanov"}]
+description = "Z80 emulator Python binding"
+requires-python = ">=v3.8"
+
+[tool.setuptools]
+ext-modules = [
+    {name = "z80py", sources = ["source/z80/emulator.c", "source/z80py/emulator.c"], include-dirs = ["source", "source/z80py"]}
+]

@@ -8,6 +8,8 @@ from typing import Optional
 
 from z80asm import Z80AsmParser, Z80AsmLayouter, Z80AsmCompiler, Z80AsmPrinter
 
+from z80py import Z80
+
 TESTS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = TESTS_DIR.parent
 
@@ -67,7 +69,7 @@ def run_test_program(
     preset_regs: Optional[dict[str, int]] = None,
     dump_points: Optional[dict[int, dict[str, int]]] = None,
     memory_map: Optional[dict[str, int]] = None
-) -> list[dict[str, int]]:
+) -> tuple[dict[str, int], bytearray]:
     # Fill the file to 64KiB with zeros.
     memory_array: bytearray = bytearray(memory) + bytearray(b"\0" * (MEMFILE_SIZE_BYTES - len(memory)))
     if memory_map is not None:
@@ -77,44 +79,31 @@ def run_test_program(
             memory_array[addr] = byte
     memory = bytes(memory_array)
 
-    with open(MEMFILE, "wb") as fout:
-        fout.write(memory)
-    with open(IOFILE, "wb") as fout:
-        fout.write(io)
+    def memread(addr: int) -> int:
+        return memory_array[addr]
 
-    preset = []
+    def memwrite(addr: int, byte: int):
+        memory_array[addr] = byte
+
+    def ioread(addr: int, byte: int) -> int:
+        return 0
+
+    def iowrite(addr: int, byte: int):
+        pass
+
+    cpu = Z80(memread, memwrite, ioread, iowrite)
+
     if preset_regs is not None:
         for reg, val in preset_regs.items():
-            reg = f"-r{reg}=0x{val:04x}"
-            preset.append(reg)
+            cpu.set_register(reg, val)
 
-    inspects = []
-    if dump_points is not None:
-        for pc, regs in dump_points.items():
-            dump = f"-dump=0x{pc:04x}"
-            inspects.append(dump)
+    while not cpu.halted:
+        cpu.instruction()
 
-    cmd = [path, MEMFILE, IOFILE, *preset, *inspects]
-    proc = sp.run(cmd, timeout=TEST_TIMEOUT_SEC, stdout=sp.PIPE, stderr=sp.PIPE, text=True, encoding="UTF-8")
-
-    if proc.returncode != 0:
-        cmd_cat = " ".join(str(i) for i in cmd)
-        raise AssertionError(f'process "{cmd_cat}" returned code {proc.returncode}: {proc.stderr}')
-
-    dumps = []
-    for chunk in proc.stdout.split("\n\n"):
-        dump = parse_reg_dump(chunk)
-        dumps.append(dump)
-
-    assert len(dumps) == len(inspects) + 1
-
-    return dumps
+    return cpu.dump(), memory_array
 
 
-def test_memory(case: unittest.TestCase, memmap: dict[int, int]):
-    with open(MEMFILE, "rb") as file:
-        for addr, val in memmap.items():
-            file.seek(addr)
-            b = int.from_bytes(file.read(1))
-            case.assertEqual(b, val, f"byte on 0x{addr:04X}: expected 0x{val:02X}, got 0x{b:02X}")
-
+def test_memory(case: unittest.TestCase, memory_array: bytearray, memmap: dict[int, int]):
+    for addr, val in memmap.items():
+        b = memory_array[addr]
+        case.assertEqual(b, val, f"byte on 0x{addr:04X}: expected 0x{val:02X}, got 0x{b:02X}")

@@ -69,3 +69,5 @@ commit.msg
 # Test memory and io files
 memfile
 iofile
+
+*.egg-info

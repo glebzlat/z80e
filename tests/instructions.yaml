@@ -5,17 +5,6 @@
 #     # Optional: test is disabled if skip is present.
 #     skip: <reason>
 #
-#     # Optional: Program Counter -> register dump mapping. When the PC reaches
-#     #   the value in this field, the executable prints this register dump.
-#     #   It is asserted to be equal to the given register values.
-#     #   Registers not mentioned must be equal to 0x00.
-#     #   Note that the actual PC may be greater than dump point if the point
-#     #   is not aligned with the instruction bytes.
-#     inspect:
-#       <pc>:
-#         <register-name>: <int>
-#         ...
-#
 #     # Optional: conditions set before the program is executed.
 #     preset:
 #       # Optional: preset registers.
@@ -108,32 +97,6 @@ tests:
       0x0010: 0x88
       0x0011: 0x89
       0x0012: 0x8a
-
-  - desc: test pipeline - dump points
-    inspect:
-      0x0002:
-        a: 0x88
-        pc: 0x0002
-      0x0004:
-        a: 0x88
-        b: 0x66
-        pc: 0x0004
-      0x0005:
-        a: 0x88
-        b: 0x66
-        c: 0x33
-        # Note that the dump point may not be aligned, but PC always is.
-        pc: 0x0006
-    source: |
-      ld a, 0x88
-      ld b, 0x66
-      ld c, 0x33
-      halt
-    regs:
-      a: 0x88
-      b: 0x66
-      c: 0x33
-      pc: 0x0007
 
   - desc: nop
     source: |
