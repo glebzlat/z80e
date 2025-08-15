@@ -4,7 +4,7 @@ from io import StringIO
 from enum import IntEnum, auto
 from typing import Optional
 
-from tests.common import PROG, compile_asm, run_test_program
+from tests.common import PROG, compile_asm, Tester, TestError
 
 
 class Operation(IntEnum):
@@ -243,7 +243,8 @@ def test_addition(m: Model, errors: ErrorCounter, printer: ProgressPrinter):
                 halt
             """
             _, encoded = compile_asm(source)
-            registers, memory = run_test_program(PROG, encoded, b"")
+            tst = Tester(encoded_program=encoded)
+            registers = tst.run_test()
             assert r == registers["a"], f"expected A register == 0x{r:02x}, got 0x{registers["a"]:02x}, daa=0x{r:02x}"
             test_flags(m, registers["f"])
         except AssertionError as e:
@@ -267,7 +268,8 @@ def test_subtraction(m: Model, errors: ErrorCounter, printer: ProgressPrinter):
                 halt
                 """
                 _, encoded = compile_asm(source)
-                registers, memory = run_test_program(PROG, encoded, b"")
+                tst = Tester(encoded_program=encoded)
+                registers = tst.run_test()
                 assert r == registers["a"], f"expected A register == 0x{r:02x}, got 0x{registers["a"]:02x}"
                 test_flags(m, registers["f"])
             except AssertionError as e:

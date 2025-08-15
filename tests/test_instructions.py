@@ -52,6 +52,7 @@ class InstructionTestMeta(type):
                         encoded_program=encoded,
                         expected_registers=registers,
                         preset_registers=preset.get("regs"),
+                        preset_memory=preset.get("mem"),
                         memory_checkpoints=test.get("mem"),
                         io_inputs=io.get("in"),
                         io_outputs=io.get("out")

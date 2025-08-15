@@ -70,18 +70,19 @@ class Tester:
         self,
         encoded_program: bytes,
         *,
-        expected_registers: dict[str, int],
-        preset_regs: Optional[dict[str, int]] = None,
+        expected_registers: dict[str, int] = None,
+        preset_registers: Optional[dict[str, int]] = None,
+        preset_memory: Optional[dict[int, int]] = None,
         memory_checkpoints: Optional[dict[int, int]] = None,
         io_inputs: Optional[dict[int, list[int]]] = None,
-        io_outputs: Optional[dict[int, list[int]]] = None
+        io_outputs: Optional[dict[int, list[int]]] = None,
     ):
-        if len(encoded_program) > 0xffff:
-            raise TestError("the length of the program exceeds 0xffff")
+        assert len(encoded_program) < 0x10000, "the length of the program exceeds addressable memory"
 
         self.expected_registers = expected_registers
         self.encoded_program = encoded_program
-        self.preset_regs = preset_regs
+        self.preset_registers = preset_registers
+        self.preset_memory = preset_memory
         self.memory_checkpoints = memory_checkpoints
         self.io_inputs = io_inputs
         self.io_outputs = io_outputs
@@ -97,24 +98,33 @@ class Tester:
             self.io_outputs = {}
 
         self.memory = bytearray(self.encoded_program) + bytearray(b"\0" * (0x10000 - len(self.encoded_program)))
+        if self.preset_memory is not None:
+            for addr, byte in self.preset_memory.items():
+                assert byte.bit_length() <= 8
+                assert addr < len(self.memory)
+                self.memory[addr] = byte
 
-    def run_test(self):
+    def run_test(self) -> dict[str, int]:
         memread, memwrite, ioread, iowrite = self._get_io_funcs()
 
         cpu = Z80(memread, memwrite, ioread, iowrite)
 
-        if self.preset_regs is not None:
-            for reg, val in self.preset_regs.items():
+        if self.preset_registers is not None:
+            for reg, val in self.preset_registers.items():
                 cpu.set_register(reg, val)
 
-        while not cpu.halted():
+        while not cpu.halted:
             cpu.instruction()
 
         registers = cpu.dump()
-        self._assert_registers(registers)
+
+        if self.expected_registers is not None:
+            self._assert_registers(registers)
 
         self._assert_io()
         self._assert_memory()
+
+        return registers
 
     def _get_io_funcs(self) -> tuple[Callable, Callable, Callable, Callable]:
 
@@ -167,9 +177,11 @@ class Tester:
                 raise TestError(f"IO port {port:#x}: not all bytes are received")
 
     def _assert_memory(self):
+        if self.memory_checkpoints is None:
+            return
         for addr, byte in self.memory_checkpoints.items():
             if self.memory[addr] != byte:
-                raise TestError(f"at {addr:#04x}: expected {byte:#x}, got {self.memory[addr]:#x}")
+                raise TestError(f"at {addr:#06x}: expected {byte:#x}, got {self.memory[addr]:#x}")
 
 
 def run_test_program(
