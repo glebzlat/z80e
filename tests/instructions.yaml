@@ -18,6 +18,24 @@
 #         <addr>: <int>
 #         ...
 #
+#       # Optional: data expected to be read from or to be written to the IO
+#       io:
+#
+#         # Optional: IO output sequence for port. Each time the port is read,
+#         # it outputs the next byte from the sequence. IO output requires
+#         # that the number of reads is equal to the sequence length.
+#         out:
+#           <port>: [<int>]
+#           ...
+#
+#         # Optional: IO input sequence for port. Each time the port write is
+#         # performed, it asserts that the received byte is equal to the current
+#         # byte in the sequence. IO input requires that the number of writes
+#         # is equal to the sequence length.
+#         in:
+#           <port>: [<int>]
+#           ...
+#
 #     regs:
 #       # Registers not mentioned in regs must be equal to 0x00.
 #       <register-name>: <int>

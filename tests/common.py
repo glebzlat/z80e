@@ -1,10 +1,9 @@
 import unittest
 import re
-import subprocess as sp
 
 from io import StringIO, BytesIO
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Callable
 
 from z80asm import Z80AsmParser, Z80AsmLayouter, Z80AsmCompiler, Z80AsmPrinter
 
@@ -61,6 +60,118 @@ def parse_reg_dump(s: str) -> dict[str, int]:
     return registers
 
 
+class TestError(Exception):
+    pass
+
+
+class Tester:
+
+    def __init__(
+        self,
+        encoded_program: bytes,
+        *,
+        expected_registers: dict[str, int],
+        preset_regs: Optional[dict[str, int]] = None,
+        memory_checkpoints: Optional[dict[int, int]] = None,
+        io_inputs: Optional[dict[int, list[int]]] = None,
+        io_outputs: Optional[dict[int, list[int]]] = None
+    ):
+        if len(encoded_program) > 0xffff:
+            raise TestError("the length of the program exceeds 0xffff")
+
+        self.expected_registers = expected_registers
+        self.encoded_program = encoded_program
+        self.preset_regs = preset_regs
+        self.memory_checkpoints = memory_checkpoints
+        self.io_inputs = io_inputs
+        self.io_outputs = io_outputs
+
+        if self.io_inputs is not None:
+            self.io_inputs = {port: [seq, 0] for port, seq in self.io_inputs.items()}
+        else:
+            self.io_inputs = {}
+
+        if self.io_outputs is not None:
+            self.io_outputs = {port: [seq, 0] for port, seq in self.io_outputs.items()}
+        else:
+            self.io_outputs = {}
+
+        self.memory = bytearray(self.encoded_program) + bytearray(b"\0" * (0x10000 - len(self.encoded_program)))
+
+    def run_test(self):
+        memread, memwrite, ioread, iowrite = self._get_io_funcs()
+
+        cpu = Z80(memread, memwrite, ioread, iowrite)
+
+        if self.preset_regs is not None:
+            for reg, val in self.preset_regs.items():
+                cpu.set_register(reg, val)
+
+        while not cpu.halted():
+            cpu.instruction()
+
+        registers = cpu.dump()
+        self._assert_registers(registers)
+
+        self._assert_io()
+        self._assert_memory()
+
+    def _get_io_funcs(self) -> tuple[Callable, Callable, Callable, Callable]:
+
+        def memread(addr: int) -> int:
+            if addr >= len(self.memory):
+                raise TestError(f"address {addr:#x} is out of memory bound")
+            return self.memory[addr]
+
+        def memwrite(addr: int, byte: int):
+            if addr >= len(self.memory):
+                raise TestError(f"address {addr:#x} is out of memory bound")
+            self.memory[addr] = byte
+
+        def ioread(addr: int, byte: int) -> int:
+            port = addr & 0xff
+            if port not in self.io_inputs:
+                raise TestError(f"no IO port with port address: {port:#x}")
+            seq, count = self.io_inputs[port]
+            if count == len(seq):
+                raise TestError(f"Attempted read from port {port:#x}, while there is no more data")
+            current = seq[count]
+            self.io_inputs[port] = [seq, count + 1]
+            return current
+
+        def iowrite(addr: int, byte: int) -> int:
+            port = addr & 0xff
+            if port not in self.io_inputs:
+                raise TestError(f"no IO port with port address: {port:#x}")
+            seq, count = self.io_inputs[port]
+            if count == len(seq):
+                raise TestError(f"Attempted write to port {port:#x}, while there is no more data")
+            if byte != seq[count]:
+                raise TestError(f"IO port {port:#x}: at {count}: byte {seq[count]:#x} != {byte:#x}")
+
+        return memread, memwrite, ioread, iowrite
+
+    def _assert_registers(self, registers: dict[str, int]):
+        for reg, val in registers.items():
+            clue = self.expected_registers.get(reg, 0)
+            if val == clue:
+                continue
+            raise TestError(f"register {reg} expected {clue:#x}, got {val:#x}")
+
+    def _assert_io(self):
+        for port, (seq, count) in self.io_inputs.items():
+            if count < len(seq):
+                raise TestError(f"port IO {port:#x}: not all bytes are outputted")
+        for port, (seq, count) in self.io_outputs.items():
+            if count < len(seq):
+                raise TestError(f"IO port {port:#x}: not all bytes are received")
+
+    def _assert_memory(self):
+        for addr, byte in self.memory_checkpoints.items():
+            if self.memory[addr] != byte:
+                raise TestError(f"at {addr:#04x}: expected {byte:#x}, got {self.memory[addr]:#x}")
+
+
 def run_test_program(
     path: Path,
     memory: bytes,
@@ -68,7 +179,8 @@ def run_test_program(
     *,
     preset_regs: Optional[dict[str, int]] = None,
     dump_points: Optional[dict[int, dict[str, int]]] = None,
-    memory_map: Optional[dict[str, int]] = None
+    memory_map: Optional[dict[str, int]] = None,
+    io_input: Optional[dict[int, int]] = None,
 ) -> tuple[dict[str, int], bytearray]:
     # Fill the file to 64KiB with zeros.
     memory_array: bytearray = bytearray(memory) + bytearray(b"\0" * (MEMFILE_SIZE_BYTES - len(memory)))
