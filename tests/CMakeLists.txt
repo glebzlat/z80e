@@ -30,7 +30,7 @@ add_custom_target(
 )
 
 add_custom_target(
-    RunDAATest
+    TestDAA
     ${PYTHON3_ENV_EXECUTABLE} -m tests.test_daa
     DEPENDS ${VENV_STAMP}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
