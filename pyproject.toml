@@ -1,6 +1,12 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = [
+    # "scikit-build>=0.13",
+    "scikit-build-core>=0.10",
+    "setuptools>=64",
+    "cmake>=3.20",
+    "ninja"
+]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "z80py"
@@ -9,7 +15,14 @@ authors = [{name = "Gleb Zlatanov"}]
 description = "Z80 emulator Python binding"
 requires-python = ">=v3.8"
 
+[tool.scikit-build]
+wheel.packages = ["source/z80py"]
+cmake.args = ["-DZ80E_PYTHON_MODULE=ON"]
+
 [tool.setuptools]
-ext-modules = [
-    {name = "z80py", sources = ["source/z80/emulator.c", "source/z80py/emulator.c"], include-dirs = ["source", "source/z80py"]}
-]
+packages = ["source/z80py"]
+include_package_data = true
+
+# TODO: how to supply stub files correctly so that LSPs pick them?
+[tool.setuptools.package-data]
+"z80py" = ["source/z80py/z80py.pyi"]
