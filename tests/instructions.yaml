@@ -3040,3 +3040,93 @@ tests:
       h: 0x60
       pc: 0x003b
       sp: 0x2000
+
+  - desc: in a, (n) - one byte
+    preset:
+      io:
+        in:
+          0x10: [0x7b]
+    source: |
+      in a, (0x10)
+      halt
+    regs:
+      a: 0x7b
+      pc: 0x0003
+
+  - desc: in a, (n) - three bytes
+    preset:
+      io:
+        in:
+          0x10: [0x7b, 0x42, 0xad]
+    source: |
+      in a, (0x10)
+      ld b, a
+      in a, (0x10)
+      ld c, a
+      in a, (0x10)
+      halt
+    regs:
+      a: 0xad
+      b: 0x7b
+      c: 0x42
+      pc: 0x0009
+
+  - desc: in d, (c) - yf, xf, pvf
+    preset:
+      regs:
+        c: 0x07
+      io:
+        in:
+          0x07: [0x7b]
+    source: |
+      in d, (c)
+      halt
+    regs:
+      c: 0x07
+      d: 0x7b
+      f: 0x2c
+      pc: 0x0003
+
+  - desc: ini
+    preset:
+      regs:
+        b: 0x10
+        c: 0x07
+        h: 0x10
+      io:
+        in:
+          0x07: [0x7b]
+    source: |
+      ini
+      halt
+    regs:
+      b: 0x0f
+      c: 0x07
+      h: 0x10
+      l: 0x01
+      f: 0x02
+      pc: 0x0003
+    mem:
+      0x1000: 0x7b
+
+  - desc: ini - zf
+    preset:
+      regs:
+        b: 0x01
+        c: 0x08
+        h: 0x10
+      io:
+        in:
+          0x08: [0x2a]
+    source: |
+      ini
+      halt
+    regs:
+      b: 0x00
+      c: 0x08
+      h: 0x10
+      l: 0x01
+      f: 0x42
+      pc: 0x0003
+    mem:
+      0x1000: 0x2a

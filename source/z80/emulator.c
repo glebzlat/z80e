@@ -485,6 +485,9 @@ static zi8 z80e_execute(z80e* z80, zu8 opcode) {
   case 0xf7: return call(z80, 1, 0x0030); /* rst 0x30 */
   case 0xff: return call(z80, 1, 0x0038); /* rst 0x38 */
 
+  case 0xdb: reg(a) = io_read_byte(z80, read_byte(z80), reg(a)); return 11; /* in a, (n) */
+  case 0xd3: io_write_byte(z80, read_byte(z80), reg(a)); return 11; /* out (n), a */
+
     /* clang-format on */
 
   case 0x07: /* rlca */
@@ -563,14 +566,6 @@ static zi8 z80e_execute(z80e* z80, zu8 opcode) {
     tmp8 = read_byte_at(z80, hl(z80));
     dec8(z80, &tmp8);
     write_byte_at(z80, tmp8, hl(z80));
-    return 11;
-
-  case 0xdb: /* in a, (n) */
-    reg(a) = io_read_byte(z80, read_byte(z80), reg(a));
-    return 11;
-
-  case 0xd3: /* out (n), a */
-    io_write_byte(z80, read_byte(z80), reg(a));
     return 11;
 
   case 0xcb:
@@ -715,6 +710,19 @@ static zi8 z80e_execute_cb(z80e* z80, zu8 opcode, zu16 addr) {
 }
 
 static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
+
+#define in_op_set_flags(dest_reg, fn_call)                                                                             \
+  do {                                                                                                                 \
+    dest_reg = fn_call;                                                                                                \
+    set_sf(z80, bit(dest_reg, 7));                                                                                     \
+    set_zf(z80, dest_reg == 0);                                                                                        \
+    set_yf(z80, bit(dest_reg, 5));                                                                                     \
+    set_hf(z80, 0);                                                                                                    \
+    set_xf(z80, bit(dest_reg, 3));                                                                                     \
+    set_pof(z80, is_even_parity(dest_reg));                                                                            \
+    set_nf(z80, 0);                                                                                                    \
+  } while (0)
+
   switch (opcode) {
     /* clang-format off */
   case 0x47: z80->reg.i = reg(a); return 9; /* ld i, a */
@@ -758,6 +766,15 @@ static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
   case 0x67: rrd(z80); return 18; /* rrd */
 
   case 0x4d: ret(z80, 1); return 14; /* reti */
+
+  case 0x78: in_op_set_flags(reg(a), io_read_byte(z80, reg(c), reg(b))); return 12; /* in a, (c) */
+  case 0x40: in_op_set_flags(reg(b), io_read_byte(z80, reg(c), reg(b))); return 12; /* in b, (c) */
+  case 0x48: in_op_set_flags(reg(c), io_read_byte(z80, reg(c), reg(b))); return 12; /* in c, (c) */
+  case 0x50: in_op_set_flags(reg(d), io_read_byte(z80, reg(c), reg(b))); return 12; /* in d, (c) */
+  case 0x58: in_op_set_flags(reg(e), io_read_byte(z80, reg(c), reg(b))); return 12; /* in e, (c) */
+  case 0x60: in_op_set_flags(reg(h), io_read_byte(z80, reg(c), reg(b))); return 12; /* in h, (c) */
+  case 0x68: in_op_set_flags(reg(l), io_read_byte(z80, reg(c), reg(b))); return 12; /* in l, (c) */
+
     /* clang-format on */
 
   case 0x57: /* ld a, i */
@@ -783,9 +800,19 @@ static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
     set_iff1(z80, iff2(z80));
     return 14;
 
+  case 0xa2: /* ini */
+    write_byte_at(z80, io_read_byte(z80, reg(c), reg(b)), hl(z80));
+    reg(b) = reg(b) - 1;
+    set_hl(z80, hl(z80) + 1);
+    set_zf(z80, reg(b) == 0);
+    set_nf(z80, 1);
+    return 16;
+
   default:
     return Z80E_INVALID_OPCODE;
   }
+
+#undef in_op_set_flags
 }
 
 static zi8 z80e_execute_ddfd(z80e* z80, zu16* rr, zu8 opcode) {
