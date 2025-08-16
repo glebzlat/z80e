@@ -1,5 +1,5 @@
 import unittest
-import re
+import datetime as dt
 
 from io import StringIO, BytesIO
 from pathlib import Path
@@ -42,22 +42,6 @@ def compile_asm(source: str) -> tuple[str, bytes]:
     compiler.emit_bytes(ostream)
 
     return sstream.getvalue(), ostream.getvalue()
-
-
-def parse_reg_dump(s: str) -> dict[str, int]:
-    registers = {}
-    for i, line in enumerate(s.splitlines()):
-        m = re.match(r"(?P<reg1>[a-z]+)\s+(?P<reg1_val>0b[01]+)\s+(?P<reg2>[a-z]+)'?\s+(?P<reg2_val>0b[01]+)", line)
-
-        if m is None:
-            raise AssertionError(f"dump parsing failed on line {i}: {line!r}")
-
-        reg1, reg2 = m.group("reg1"), m.group("reg2")
-        registers[reg1] = int(m.group("reg1_val"), 2)
-        if i < 8 and reg2 in registers:
-            reg2 = f"{reg2}_alt"
-        registers[reg2] = int(m.group("reg2_val"), 2)
-    return registers
 
 
 class TestError(Exception):
@@ -113,7 +97,11 @@ class Tester:
             for reg, val in self.preset_registers.items():
                 cpu.set_register(reg, val)
 
+        time_started = dt.datetime.now()
+        timeout = dt.timedelta(seconds=1)
         while not cpu.halted:
+            if dt.datetime.now() - time_started > timeout:
+                raise TestError("timeout expired")
             cpu.instruction()
 
         registers = cpu.dump()
@@ -143,6 +131,7 @@ class Tester:
             if port not in self.io_inputs:
                 raise TestError(f"no IO port with port address: {port:#x}")
             seq, count = self.io_inputs[port]
+            assert isinstance(seq, list)
             if count == len(seq):
                 raise TestError(f"Attempted read from port {port:#x}, while there is no more data")
             current = seq[count]
@@ -154,6 +143,7 @@ class Tester:
             if port not in self.io_inputs:
                 raise TestError(f"no IO port with port address: {port:#x}")
             seq, count = self.io_inputs[port]
+            assert isinstance(seq, list)
             if count == len(seq):
                 raise TestError(f"Attempted write to port {port:#x}, while there is no more data")
             if byte != seq[count]:
@@ -171,10 +161,14 @@ class Tester:
     def _assert_io(self):
         for port, (seq, count) in self.io_inputs.items():
             if count < len(seq):
-                raise TestError(f"port IO {port:#x}: not all bytes are outputted")
+                left_count = len(seq) - count
+                left_bytes = " ".join(f"{i:#04x}" for i in seq[count:])
+                raise TestError(f"IO port {port:#04x} input: {left_count} bytes left: {left_bytes}")
         for port, (seq, count) in self.io_outputs.items():
             if count < len(seq):
-                raise TestError(f"IO port {port:#x}: not all bytes are received")
+                left_count = len(seq) - count
+                left_bytes = " ".join(f"{i:#04x}" for i in seq[count:])
+                raise TestError(f"IO port {port:#04x} output: {left_count} bytes left: {left_bytes}")
 
     def _assert_memory(self):
         if self.memory_checkpoints is None:
