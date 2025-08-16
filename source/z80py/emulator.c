@@ -131,7 +131,7 @@ static PyObject* Z80_instruction(PyObject* self, PyObject* args, PyObject* kwarg
   if (!_self)
     return NULL;
 
-  z80e_instruction(&_self->_z80);
+  zi8 t_states = z80e_instruction(&_self->_z80);
 
   if (_self->exc_occurred) {
     _self->exc_occurred = 0;
@@ -139,7 +139,8 @@ static PyObject* Z80_instruction(PyObject* self, PyObject* args, PyObject* kwarg
     return NULL;
   }
 
-  return Py_None;
+  PyObject* ret = PyLong_FromLong(t_states);
+  return ret;
 }
 
 static PyObject* Z80_get_halted(PyObject* self, void* closure) {
