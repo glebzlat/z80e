@@ -3130,3 +3130,27 @@ tests:
       pc: 0x0003
     mem:
       0x1000: 0x2a
+
+  - desc: inir
+    preset:
+      regs:
+        b: 0x03
+        c: 0x07
+        h: 0x10
+      io:
+        in:
+          0x07: [0x51, 0xa9, 0x03]
+    source: |
+      inir
+      halt
+    regs:
+      b: 0x00
+      c: 0x07
+      h: 0x10
+      l: 0x03
+      f: 0x42
+      pc: 0x0003
+    mem:
+      0x1000: 0x51
+      0x1001: 0xa9
+      0x1002: 0x03
