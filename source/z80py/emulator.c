@@ -139,6 +139,17 @@ static PyObject* Z80_instruction(PyObject* self, PyObject* args, PyObject* kwarg
     return NULL;
   }
 
+  if (t_states == Z80E_DAA_INVALID_VALUE) {
+    PyObject* exc = PyErr_NewException("z80py.InvalidDAAValueError", NULL, NULL);
+    PyErr_Format(exc, "invalid DAA value at 0x%04x", _self->_z80.reg.pc);
+    return NULL;
+  }
+  if (t_states == Z80E_INVALID_OPCODE) {
+    PyObject* exc = PyErr_NewException("z80py.InvalidOpcodeError", NULL, NULL);
+    PyErr_Format(exc, "invalid opcode at 0x%04x", _self->_z80.reg.pc);
+    return NULL;
+  }
+
   PyObject* ret = PyLong_FromLong(t_states);
   return ret;
 }

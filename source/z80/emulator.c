@@ -705,6 +705,7 @@ static zi8 z80e_execute_cb(z80e* z80, zu8 opcode, zu16 addr) {
     /* clang-format on */
 
   default:
+    z80->reg.pc -= 2;
     return Z80E_INVALID_OPCODE;
   }
 
@@ -813,6 +814,7 @@ static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
     return 16;
 
   default:
+    z80->reg.pc -= 2;
     return Z80E_INVALID_OPCODE;
   }
 
@@ -888,6 +890,7 @@ static zi8 z80e_execute_ddfd(z80e* z80, zu16* rr, zu8 opcode) {
     return z80e_execute_cb(z80, read_byte(z80), tmp);
 
   default:
+    z80->reg.pc -= 2;
     return Z80E_INVALID_OPCODE;
   }
 }
