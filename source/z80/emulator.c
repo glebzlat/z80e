@@ -70,7 +70,9 @@ static void undoc_bit_hl(z80e* z80, zu8 opcode);
 static void set_op(z80e* z80, zu8 opcode, zu8* r);
 static void res_op(z80e* z80, zu8 opcode, zu8* r);
 
-static zi8 inir(z80e* z80);
+/* ini or ind depending on mode */
+static void in_id(z80e* z80, int mode);
+static zi8 inr(z80e* z80, int mode);
 
 static zu8 is_even_parity(zu8 v);
 
@@ -778,7 +780,10 @@ static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
   case 0x60: in_op_set_flags(reg(h), io_read_byte(z80, reg(c), reg(b))); return 12; /* in h, (c) */
   case 0x68: in_op_set_flags(reg(l), io_read_byte(z80, reg(c), reg(b))); return 12; /* in l, (c) */
 
-  case 0xb2: return inir(z80); /* inir */
+  case 0xa2: in_id(z80, 0); return 16; /* ini */
+  case 0xaa: in_id(z80, 1); return 16; /* ind */
+  case 0xb2: return inr(z80, 0); /* inir */
+  case 0xba: return inr(z80, 1); /* indr */
 
     /* clang-format on */
 
@@ -804,14 +809,6 @@ static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
     ret(z80, 1);
     set_iff1(z80, iff2(z80));
     return 14;
-
-  case 0xa2: /* ini */
-    write_byte_at(z80, io_read_byte(z80, reg(c), reg(b)), hl(z80));
-    reg(b) = reg(b) - 1;
-    set_hl(z80, hl(z80) + 1);
-    set_zf(z80, reg(b) == 0);
-    set_nf(z80, 1);
-    return 16;
 
   default:
     z80->reg.pc -= 2;
@@ -1429,13 +1426,17 @@ static void res_op(z80e* z80, zu8 opcode, zu8* r) {
   *r &= ~(1 << bit_idx);
 }
 
-static zi8 inir(z80e* z80) {
+static void in_id(z80e* z80, int mode) {
   zu8 byte = io_read_byte(z80, reg(c), reg(b));
   write_byte_at(z80, byte, hl(z80));
-  set_hl(z80, hl(z80) + 1);
+  set_hl(z80, hl(z80) + (mode ? -1 : 1));
   reg(b) = reg(b) - 1;
-  set_zf(z80, 1);
+  set_zf(z80, reg(b) == 0);
   set_nf(z80, 1);
+}
+
+static zi8 inr(z80e* z80, int mode) {
+  in_id(z80, mode);
   if (reg(b) == 0) {
     return 16;
   }

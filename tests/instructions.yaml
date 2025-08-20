@@ -3154,3 +3154,61 @@ tests:
       0x1000: 0x51
       0x1001: 0xa9
       0x1002: 0x03
+
+  - desc: out (n), a
+    preset:
+      regs:
+        a: 0x23
+      io:
+        out:
+          0x10: [0x23]
+    source: |
+      out (0x10), a
+      halt
+    regs:
+      a: 0x23
+      pc: 0x0003
+
+  - desc: ind
+    preset:
+      regs:
+        b: 0x10
+        c: 0x07
+        h: 0x10
+      io:
+        in:
+          0x07: [0x7b]
+    source: |
+      ind
+      halt
+    regs:
+      b: 0x0f
+      c: 0x07
+      h: 0x0f
+      l: 0xff
+      f: 0x02
+      pc: 0x0003
+    mem:
+      0x1000: 0x7b
+
+  - desc: ind - zf
+    preset:
+      regs:
+        b: 0x01
+        c: 0x07
+        h: 0x10
+      io:
+        in:
+          0x07: [0x7b]
+    source: |
+      ind
+      halt
+    regs:
+      b: 0x00
+      c: 0x07
+      h: 0x0f
+      l: 0xff
+      f: 0x42
+      pc: 0x0003
+    mem:
+      0x1000: 0x7b
