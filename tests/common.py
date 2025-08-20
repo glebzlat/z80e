@@ -142,15 +142,17 @@ class Tester:
             return current
 
         def iowrite(addr: int, byte: int) -> int:
+            print(f"iowrite {addr=} {byte=}")
             port = addr & 0xff
-            if port not in self.io_inputs:
+            if port not in self.io_outputs:
                 raise TestError(f"no IO port with port address: {port:#x}")
-            seq, count = self.io_inputs[port]
+            seq, count = self.io_outputs[port]
             assert isinstance(seq, list)
             if count == len(seq):
-                raise TestError(f"Attempted write to port {port:#x}, while there is no more data")
+                raise TestError(f"Attempted write to port {port:#x}, while there is no more data expected")
             if byte != seq[count]:
                 raise TestError(f"IO port {port:#x}: at {count}: byte {seq[count]:#x} != {byte:#x}")
+            self.io_outputs[port] = [seq, count + 1]
 
         return memread, memwrite, ioread, iowrite
 
