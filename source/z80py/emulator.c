@@ -376,8 +376,14 @@ static void memwrite_fn(zu32 addr, zu8 byte, void* ctx) {
 
 static zu8 ioread_fn(zu16 addr, zu8 byte, void* ctx) {
   Z80* self = ctx;
-  PyObject *result, *args = Py_BuildValue("(ii)", addr, byte);
+  PyObject *result = NULL, *args = Py_BuildValue("(ii)", addr, byte);
   int ret = 0;
+
+  if (args == NULL) {
+    self->exc_occurred = 1;
+    PyErr_Fetch(&self->exc_type, &self->exc_value, &self->exc_tb);
+    return ret;
+  }
 
   if ((result = PyObject_CallObject(self->ioread, args)) == NULL) {
     self->exc_occurred = 1;
@@ -394,18 +400,29 @@ static zu8 ioread_fn(zu16 addr, zu8 byte, void* ctx) {
 
 cleanup:
   Py_DECREF(args);
+  Py_XDECREF(result);
 
   return ret;
 }
 
 static void iowrite_fn(zu16 addr, zu8 byte, void* ctx) {
   Z80* self = ctx;
+
   PyObject* args = Py_BuildValue("(ii)", addr, byte);
-  if (PyObject_CallObject(self->iowrite, args) == NULL) {
+  if (args == NULL) {
+    self->exc_occurred = 1;
+    PyErr_Fetch(&self->exc_type, &self->exc_value, &self->exc_tb);
+    return;
+  }
+
+  PyObject* result = NULL;
+  if ((result = PyObject_CallObject(self->iowrite, args)) == NULL) {
     self->exc_occurred = 1;
     PyErr_Fetch(&self->exc_type, &self->exc_value, &self->exc_tb);
   }
+
   Py_DECREF(args);
+  Py_XDECREF(result);
 }
 
 static int z80_module_exec(PyObject* m) {
