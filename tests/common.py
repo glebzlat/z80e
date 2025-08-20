@@ -99,10 +99,13 @@ class Tester:
 
         time_started = dt.datetime.now()
         timeout = dt.timedelta(seconds=1)
-        while not cpu.halted:
-            if dt.datetime.now() - time_started > timeout:
-                raise TestError("timeout expired")
-            cpu.instruction()
+        try:
+            while not cpu.halted:
+                if dt.datetime.now() - time_started > timeout:
+                    raise TestError("timeout expired")
+                cpu.instruction()
+        except Exception as e:
+            raise TestError(f"exception {type(e)} is raised: {e}")
 
         registers = cpu.dump()
 
