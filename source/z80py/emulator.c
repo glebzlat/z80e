@@ -401,7 +401,7 @@ cleanup:
 static void iowrite_fn(zu16 addr, zu8 byte, void* ctx) {
   Z80* self = ctx;
   PyObject* args = Py_BuildValue("(ii)", addr, byte);
-  if (PyObject_CallObject(self->memwrite, args) == NULL) {
+  if (PyObject_CallObject(self->iowrite, args) == NULL) {
     self->exc_occurred = 1;
     PyErr_Fetch(&self->exc_type, &self->exc_value, &self->exc_tb);
   }
