@@ -350,7 +350,7 @@ static zu8 memread_fn(zu32 addr, void* ctx) {
     goto cleanup;
   }
 
-  ret = PyLong_AsInt(result);
+  ret = PyLong_AsLong(result);
   if (ret == -1 && PyErr_Occurred()) {
     printf("memread_fn: exception\n");
     self->exc_occurred = 1;
@@ -385,7 +385,7 @@ static zu8 ioread_fn(zu16 addr, zu8 byte, void* ctx) {
     goto cleanup;
   }
 
-  ret = PyLong_AsInt(result);
+  ret = PyLong_AsLong(result);
   if (ret == -1 && PyErr_Occurred()) {
     self->exc_occurred = 1;
     PyErr_Fetch(&self->exc_type, &self->exc_value, &self->exc_tb);
