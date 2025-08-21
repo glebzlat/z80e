@@ -3212,3 +3212,210 @@ tests:
       pc: 0x0003
     mem:
       0x1000: 0x7b
+
+  - desc: indr
+    preset:
+      regs:
+        b: 0x03
+        c: 0x07
+        h: 0x10
+      io:
+        in:
+          0x07: [0x51, 0xa9, 0x03]
+    source: |
+      indr
+      halt
+    regs:
+      b: 0x00
+      c: 0x07
+      h: 0x0f
+      l: 0xfd
+      f: 0x42
+      pc: 0x0003
+    mem:
+      0x1000: 0x51
+      0x0fff: 0xa9
+      0x0ffe: 0x03
+
+  - desc: out (c), r
+    preset:
+      regs:
+        d: 0x5a
+        c: 0x01
+      io:
+        out:
+          0x01: [0x5a]
+    source: |
+      out (c), d
+      halt
+    regs:
+      d: 0x5a
+      c: 0x01
+      pc: 0x0003
+
+  - desc: out (c), r - all registers
+    preset:
+      regs:
+        a: 0x01
+        b: 0x02
+        c: 0x03
+        d: 0x04
+        e: 0x05
+        h: 0x06
+        l: 0x07
+      io:
+        out:
+          0x03: [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]
+    source: |
+      out (c), a
+      out (c), b
+      out (c), c
+      out (c), d
+      out (c), e
+      out (c), h
+      out (c), l
+      halt
+    regs:
+      a: 0x01
+      b: 0x02
+      c: 0x03
+      d: 0x04
+      e: 0x05
+      h: 0x06
+      l: 0x07
+      pc: 0x000f
+
+  - desc: outi
+    preset:
+      regs:
+        b: 0x10
+        c: 0x07
+        h: 0x10
+      mem:
+        0x1000: 0x59
+      io:
+        out:
+          0x07: [0x59]
+    source: |
+      outi
+      halt
+    regs:
+      b: 0x0f
+      c: 0x07
+      h: 0x10
+      l: 0x01
+      f: 0x02
+      pc: 0x0003
+
+  - desc: outi - zf
+    preset:
+      regs:
+        b: 0x01
+        c: 0x07
+        h: 0x10
+      mem:
+        0x1000: 0x59
+      io:
+        out:
+          0x07: [0x59]
+    source: |
+      outi
+      halt
+    regs:
+      c: 0x07
+      h: 0x10
+      l: 0x01
+      f: 0x42
+      pc: 0x0003
+
+  - desc: outd
+    preset:
+      regs:
+        b: 0x10
+        c: 0x07
+        h: 0x10
+      mem:
+        0x1000: 0x59
+      io:
+        out:
+          0x07: [0x59]
+    source: |
+      outd
+      halt
+    regs:
+      b: 0x0f
+      c: 0x07
+      h: 0x0f
+      l: 0xff
+      f: 0x02
+      pc: 0x0003
+
+  - desc: outd - zf
+    preset:
+      regs:
+        b: 0x01
+        c: 0x07
+        h: 0x10
+      mem:
+        0x1000: 0x59
+      io:
+        out:
+          0x07: [0x59]
+    source: |
+      outd
+      halt
+    regs:
+      c: 0x07
+      h: 0x0f
+      l: 0xff
+      f: 0x42
+      pc: 0x0003
+
+  - desc: otir
+    preset:
+      regs:
+        b: 0x03
+        c: 0x07
+        h: 0x10
+      mem:
+        0x1000: 0x51
+        0x1001: 0xa9
+        0x1002: 0x03
+      io:
+        out:
+          0x07: [0x51, 0xa9, 0x03]
+    source: |
+      otir
+      halt
+    regs:
+      b: 0x00
+      c: 0x07
+      h: 0x10
+      l: 0x03
+      f: 0x42
+      pc: 0x0003
+
+  - desc: otdr
+    preset:
+      regs:
+        b: 0x03
+        c: 0x07
+        h: 0x10
+        l: 0x00
+      mem:
+        0x0ffe: 0x03
+        0x0fff: 0xa9
+        0x1000: 0x51
+      io:
+        out:
+          0x07: [0x51, 0xa9, 0x03]
+    source: |
+      otdr
+      halt
+    regs:
+      b: 0x00
+      c: 0x07
+      h: 0x0f
+      l: 0xfd
+      f: 0x42
+      pc: 0x0003

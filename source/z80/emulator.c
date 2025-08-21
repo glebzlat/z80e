@@ -73,6 +73,9 @@ static void res_op(z80e* z80, zu8 opcode, zu8* r);
 /* ini or ind depending on mode */
 static void in_id(z80e* z80, int mode);
 static zi8 inr(z80e* z80, int mode);
+/* outi or outd depending on mode */
+static void out_id(z80e* z80, int mode);
+static zi8 outr(z80e* z80, int mode);
 
 static zu8 is_even_parity(zu8 v);
 
@@ -156,7 +159,7 @@ static void write_byte_at(z80e* z80, zu8 byte, zu16 addr);
 static void write_word(z80e* z80, zu16 word);
 static void write_word_at(z80e* z80, zu16 word, zu16 addr);
 static zu8 io_read_byte(z80e* z80, zu8 port, zu8 byte);
-static void io_write_byte(z80e* z80, zu8 port, zu8 byte);
+static void io_write_byte(z80e* z80, zu8 port, zu8 msb, zu8 byte);
 
 static inline zu16 bc(z80e* z80) { return (reg(b) << 8) | reg(c); }
 static inline zu16 hl(z80e* z80) { return (reg(h) << 8) | reg(l); }
@@ -490,7 +493,7 @@ static zi8 z80e_execute(z80e* z80, zu8 opcode) {
   case 0xff: return call(z80, 1, 0x0038); /* rst 0x38 */
 
   case 0xdb: reg(a) = io_read_byte(z80, read_byte(z80), reg(a)); return 11; /* in a, (n) */
-  case 0xd3: io_write_byte(z80, read_byte(z80), reg(a)); return 11; /* out (n), a */
+  case 0xd3: io_write_byte(z80, read_byte(z80), reg(a), reg(a)); return 11; /* out (n), a */
 
     /* clang-format on */
 
@@ -784,6 +787,19 @@ static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
   case 0xaa: in_id(z80, 1); return 16; /* ind */
   case 0xb2: return inr(z80, 0); /* inir */
   case 0xba: return inr(z80, 1); /* indr */
+
+  case 0x79: io_write_byte(z80, reg(c), reg(b), reg(a)); return 12; /* out (c), a */
+  case 0x41: io_write_byte(z80, reg(c), reg(b), reg(b)); return 12; /* out (c), b */
+  case 0x49: io_write_byte(z80, reg(c), reg(b), reg(c)); return 12; /* out (c), c */
+  case 0x51: io_write_byte(z80, reg(c), reg(b), reg(d)); return 12; /* out (c), d */
+  case 0x59: io_write_byte(z80, reg(c), reg(b), reg(e)); return 12; /* out (c), e */
+  case 0x61: io_write_byte(z80, reg(c), reg(b), reg(h)); return 12; /* out (c), h */
+  case 0x69: io_write_byte(z80, reg(c), reg(b), reg(l)); return 12; /* out (c), l */
+
+  case 0xa3: out_id(z80, 0); return 16; /* outi */
+  case 0xb3: return outr(z80, 0); /* otir */
+  case 0xab: out_id(z80, 1); return 16; /* outd */
+  case 0xbb: return outr(z80, 1); /* otdr */
 
     /* clang-format on */
 
@@ -1444,6 +1460,24 @@ static zi8 inr(z80e* z80, int mode) {
   return 21;
 }
 
+static void out_id(z80e* z80, int mode) {
+  zu8 byte = read_byte_at(z80, hl(z80));
+  reg(b) = reg(b) - 1;
+  io_write_byte(z80, reg(c), reg(b), byte);
+  set_hl(z80, hl(z80) + (mode ? -1 : 1));
+  set_zf(z80, reg(b) == 0);
+  set_nf(z80, 1);
+}
+
+static zi8 outr(z80e* z80, int mode) {
+  out_id(z80, mode);
+  if (reg(b) == 0) {
+    return 16;
+  }
+  z80->reg.pc -= 2;
+  return 21;
+}
+
 static void set_bc(z80e* z80, zu16 val) {
   reg(b) = val >> 8;
   reg(c) = val;
@@ -1506,7 +1540,7 @@ static zu8 io_read_byte(z80e* z80, zu8 port, zu8 byte) {
   return z80->ioread(addr, byte, z80->ctx);
 }
 
-static void io_write_byte(z80e* z80, zu8 port, zu8 byte) {
-  zu16 addr = ((zu16)byte << 8) | port;
+static void io_write_byte(z80e* z80, zu8 port, zu8 msb, zu8 byte) {
+  zu16 addr = ((zu16)msb << 8) | port;
   z80->iowrite(addr, byte, z80->ctx);
 }
