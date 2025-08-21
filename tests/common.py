@@ -142,7 +142,6 @@ class Tester:
             return current
 
         def iowrite(addr: int, byte: int) -> int:
-            print(f"iowrite {addr=} {byte=}")
             port = addr & 0xff
             if port not in self.io_outputs:
                 raise TestError(f"no IO port with port address: {port:#x}")
