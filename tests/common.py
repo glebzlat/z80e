@@ -1,4 +1,3 @@
-import unittest
 import datetime as dt
 
 from io import StringIO, BytesIO
@@ -7,7 +6,7 @@ from typing import Optional, Callable
 
 from z80asm import Z80AsmParser, Z80AsmLayouter, Z80AsmCompiler, Z80AsmPrinter
 
-from z80py import Z80
+from z80py import Z80, InvalidDAAValueError, InvalidOpcodeError
 
 TESTS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = TESTS_DIR.parent
@@ -104,7 +103,7 @@ class Tester:
                 if dt.datetime.now() - time_started > timeout:
                     raise TestError("timeout expired")
                 cpu.instruction()
-        except Exception as e:
+        except (InvalidOpcodeError, InvalidDAAValueError) as e:
             raise TestError(f"exception {type(e)} is raised: {e}")
 
         registers = cpu.dump()

@@ -1,5 +1,7 @@
 #include <Python.h>
 
+#include <object.h>
+#include <pyerrors.h>
 #include <z80/emulator.h>
 
 typedef struct {
@@ -75,6 +77,9 @@ static PyModuleDef z80_module = {
     .m_slots = z80_module_slots,
 };
 
+static PyObject* exc_InvalidDAAValueError;
+static PyObject* exc_InvalidOpcodeError;
+
 PyMODINIT_FUNC PyInit_z80py(void) { return PyModuleDef_Init(&z80_module); }
 
 #define set_arg(argname)                                                                                               \
@@ -140,13 +145,11 @@ static PyObject* Z80_instruction(PyObject* self, PyObject* args, PyObject* kwarg
   }
 
   if (t_states == Z80E_DAA_INVALID_VALUE) {
-    PyObject* exc = PyErr_NewException("z80py.InvalidDAAValueError", NULL, NULL);
-    PyErr_Format(exc, "invalid DAA value at 0x%04x", _self->_z80.reg.pc);
+    PyErr_Format(exc_InvalidDAAValueError, "invalid DAA value at 0x%04x", _self->_z80.reg.pc);
     return NULL;
   }
   if (t_states == Z80E_INVALID_OPCODE) {
-    PyObject* exc = PyErr_NewException("z80py.InvalidOpcodeError", NULL, NULL);
-    PyErr_Format(exc, "invalid opcode at 0x%04x", _self->_z80.reg.pc);
+    PyErr_Format(exc_InvalidOpcodeError, "invalid opcode at 0x%04x", _self->_z80.reg.pc);
     return NULL;
   }
 
@@ -431,6 +434,29 @@ static int z80_module_exec(PyObject* m) {
   }
 
   if (PyModule_AddObjectRef(m, "Z80", (PyObject*)&Z80Type) < 0) {
+    return -1;
+  }
+
+  exc_InvalidDAAValueError = PyErr_NewException("z80py.InvalidDAAValueError", PyExc_Exception, NULL);
+  if (exc_InvalidDAAValueError == NULL) {
+    Py_DECREF(m);
+    return -1;
+  }
+  if (PyModule_AddObjectRef(m, "InvalidDAAValueError", exc_InvalidDAAValueError) < 0) {
+    Py_DECREF(m);
+    Py_DECREF(exc_InvalidDAAValueError);
+    return -1;
+  }
+
+  exc_InvalidOpcodeError = PyErr_NewException("z80py.InvalidOpcodeError", PyExc_BaseException, NULL);
+  if (exc_InvalidOpcodeError == NULL) {
+    Py_DECREF(m);
+    return -1;
+  }
+  Py_INCREF(exc_InvalidOpcodeError);
+  if (PyModule_AddObject(m, "InvalidOpcodeError", exc_InvalidOpcodeError) < 0) {
+    Py_DECREF(m);
+    Py_DECREF(exc_InvalidOpcodeError);
     return -1;
   }
 
