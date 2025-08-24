@@ -12,18 +12,25 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
 add_library(${PROJECT_NAME} STATIC ${PROJECT_SOURCE_DIR}/source/z80/emulator.c)
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/source)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wall -Wpedantic)
+set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+if(CMAKE_C_BYTE_ORDER STREQUAL "BIG_ENDIAN")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE BIG_ENDIAN)
+elseif(CMAKE_C_BYTE_ORDER STREQUAL "LITTLE_ENDIAN")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE LITTLE_ENDIAN)
+else()
+    message(SEND_ERROR "C byte order is not known")
+endif()
 
 set(PY_MODULE z80py)
 Python3_add_library(${PY_MODULE} MODULE WITH_SOABI EXCLUDE_FROM_ALL
-    ${PROJECT_SOURCE_DIR}/source/z80/emulator.c
     ${PROJECT_SOURCE_DIR}/source/z80py/emulator.c
 )
 target_include_directories(${PY_MODULE} PUBLIC
-    ${PROJECT_SOURCE_DIR}/source
     ${PROJECT_SOURCE_DIR}/source/z80py
     ${Python3_INCLUDE_DIRS}
 )
-target_link_libraries(${PY_MODULE} PUBLIC ${Python3_LIBRARIES})
+target_link_libraries(${PY_MODULE} PUBLIC ${Python3_LIBRARIES} ${PROJECT_NAME})
 set_target_properties(${PY_MODULE} PROPERTIES
     PREFIX ""
     SUFFIX ".so"
@@ -47,6 +54,5 @@ endif()
 
 if(Z80E_TESTING)
     message(STATUS "Enable testing")
-    target_compile_options(${PROJECT_NAME} PUBLIC -g)
     add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
 endif()

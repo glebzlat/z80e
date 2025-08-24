@@ -54,21 +54,34 @@ static void neg(z80e* z80);
 static void ccf(z80e* z80);
 static void scf(z80e* z80);
 
-static void rlc(z80e* z80, zu8* r);
-static void rl(z80e* z80, zu8* r);
-static void rrc(z80e* z80, zu8* r);
-static void rr(z80e* z80, zu8* r);
-static void sla(z80e* z80, zu8* r);
-static void sra(z80e* z80, zu8* r);
-static void srl(z80e* z80, zu8* r);
+/* Bit operations
+ *
+ * `addr` is expected only if `undoc_behavior` is true.
+ *
+ * If the undocumented behavior turned off, executes: `<op> r`, takes the
+ * value of the register `r` and modifies the same register.
+ *
+ * If turned on, executes `<op> addr r`, reads the byte from the location
+ * pointed by `addr`, performs the operation, and writes the result into the
+ * register `r`.
+ */
+
+static void rlc(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior);
+static void rl(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior);
+static void rrc(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior);
+static void rr(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior);
+static void sla(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior);
+static void sra(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior);
+static void sll(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior);
+static void srl(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior);
+
+static void bit_op(z80e* z80, zu8 opcode, zu8 r, zu16 addr, zu8 undoc_behavior);
+static void undoc_bit_hl(z80e* z80, zu8 opcode);
+static void set_op(z80e* z80, zu8 opcode, zu8* r, zu16 addr, zu8 undoc_behavior);
+static void res_op(z80e* z80, zu8 opcode, zu8* r, zu16 addr, zu8 undoc_behavior);
 
 zu8 call(z80e* z80, zu8 cc, zu16 nn);
 zu8 ret(z80e* z80, zu8 cc);
-
-static void bit_op(z80e* z80, zu8 opcode, zu8 r);
-static void undoc_bit_hl(z80e* z80, zu8 opcode);
-static void set_op(z80e* z80, zu8 opcode, zu8* r);
-static void res_op(z80e* z80, zu8 opcode, zu8* r);
 
 /* ini or ind depending on mode */
 static void in_id(z80e* z80, int mode);
@@ -150,6 +163,26 @@ inline static int u8_half_borrow(zu8 a, zu8 b) { return borrow(4, a, b, 0); }
 inline static int u8_negative(zu8 i) { return bit(i, 7); }
 inline static int u16_byte_carry(zu16 a, zu16 b) { return carry(8, a, b, 0); }
 
+inline static zu8* hptr(zu16* n) {
+#if defined(LITTLE_ENDIAN) || defined(__LITTLE_ENDIAN__)
+  return ((zu8*)n) + 1;
+#elif defined(BIG_ENDIAN) || defined(__BIG_ENDIAN__)
+  return (zu8*)n;
+#else
+#error "Neither LITTLE_ENDIAN nor BIG_ENDIAN is defined"
+#endif
+}
+
+inline static zu8* lptr(zu16* n) {
+#if defined(LITTLE_ENDIAN) || defined(__LITTLE_ENDIAN__)
+  return (zu8*)n;
+#elif defined(BIG_ENDIAN) || defined(__BIG_ENDIAN__)
+  return ((zu8*)n) + 1;
+#else
+#error "Neither LITTLE_ENDIAN nor BIG_ENDIAN is defined"
+#endif
+}
+
 static zu8 read_byte(z80e* z80);
 static zu8 read_byte_at(z80e* z80, zu16 addr);
 static zu16 read_word(z80e* z80);
@@ -173,7 +206,7 @@ static void set_de(z80e* z80, zu16 val);
 static void set_sp(z80e* z80, zu16 val);
 static void set_af(z80e* z80, zu16 val);
 
-static zi8 z80e_execute_cb(z80e* z80, zu8 opcode, zu16 addr);
+static zi8 z80e_execute_cb(z80e* z80, zu8 opcode, zu16 addr, int with_iz);
 static zi8 z80e_execute_ed(z80e* z80, zu8 opcode);
 static zi8 z80e_execute_ddfd(z80e* z80, zu16* rr, zu8 opcode);
 
@@ -576,7 +609,7 @@ static zi8 z80e_execute(z80e* z80, zu8 opcode) {
     return 11;
 
   case 0xcb:
-    return z80e_execute_cb(z80, read_byte(z80), 0);
+    return z80e_execute_cb(z80, read_byte(z80), 0, 0);
 
   case 0xed:
     return z80e_execute_ed(z80, read_byte(z80));
@@ -592,10 +625,10 @@ static zi8 z80e_execute(z80e* z80, zu8 opcode) {
   };
 }
 
-static zi8 z80e_execute_cb(z80e* z80, zu8 opcode, zu16 addr) {
+static zi8 z80e_execute_cb(z80e* z80, zu8 opcode, zu16 addr, int with_iz) {
   zu8 tmp;
 
-  if (addr == 0) {
+  if (!with_iz) {
     addr = hl(z80);
   }
 
@@ -617,95 +650,104 @@ static zi8 z80e_execute_cb(z80e* z80, zu8 opcode, zu16 addr) {
 
   switch (opcode) {
     /* clang-format off */
-  case 0x07: rlc(z80, &reg(a)); return 8; /* rlc a */
-  case 0x00: rlc(z80, &reg(b)); return 8; /* rlc b */
-  case 0x01: rlc(z80, &reg(c)); return 8; /* rlc c */
-  case 0x02: rlc(z80, &reg(d)); return 8; /* rlc d */
-  case 0x03: rlc(z80, &reg(e)); return 8; /* rlc e */
-  case 0x04: rlc(z80, &reg(h)); return 8; /* rlc h */
-  case 0x05: rlc(z80, &reg(l)); return 8; /* rlc l */
-  case 0x06: op_pointer(rlc(z80, &tmp)); return 15; /* rlc (hl) */
+  case 0x07: rlc(z80, &reg(a), addr, with_iz); return 8; /* rlc a */
+  case 0x00: rlc(z80, &reg(b), addr, with_iz); return 8; /* rlc b */
+  case 0x01: rlc(z80, &reg(c), addr, with_iz); return 8; /* rlc c */
+  case 0x02: rlc(z80, &reg(d), addr, with_iz); return 8; /* rlc d */
+  case 0x03: rlc(z80, &reg(e), addr, with_iz); return 8; /* rlc e */
+  case 0x04: rlc(z80, &reg(h), addr, with_iz); return 8; /* rlc h */
+  case 0x05: rlc(z80, &reg(l), addr, with_iz); return 8; /* rlc l */
+  case 0x06: op_pointer(rlc(z80, &tmp, addr, with_iz)); return 15; /* rlc (hl) */
 
-  case 0x17: rl(z80, &reg(a)); return 8; /* rl a */
-  case 0x10: rl(z80, &reg(b)); return 8; /* rl b */
-  case 0x11: rl(z80, &reg(c)); return 8; /* rl c */
-  case 0x12: rl(z80, &reg(d)); return 8; /* rl d */
-  case 0x13: rl(z80, &reg(e)); return 8; /* rl e */
-  case 0x14: rl(z80, &reg(h)); return 8; /* rl h */
-  case 0x15: rl(z80, &reg(l)); return 8; /* rl l */
-  case 0x16: op_pointer(rl(z80, &tmp)); return 15; /* rl (hl) */
+  case 0x17: rl(z80, &reg(a), addr, with_iz); return 8; /* rl a */
+  case 0x10: rl(z80, &reg(b), addr, with_iz); return 8; /* rl b */
+  case 0x11: rl(z80, &reg(c), addr, with_iz); return 8; /* rl c */
+  case 0x12: rl(z80, &reg(d), addr, with_iz); return 8; /* rl d */
+  case 0x13: rl(z80, &reg(e), addr, with_iz); return 8; /* rl e */
+  case 0x14: rl(z80, &reg(h), addr, with_iz); return 8; /* rl h */
+  case 0x15: rl(z80, &reg(l), addr, with_iz); return 8; /* rl l */
+  case 0x16: op_pointer(rl(z80, &tmp, addr, with_iz)); return 15; /* rl (hl) */
 
-  case 0x0f: rrc(z80, &reg(a)); return 8; /* rrc a */
-  case 0x08: rrc(z80, &reg(b)); return 8; /* rrc b */
-  case 0x09: rrc(z80, &reg(c)); return 8; /* rrc c */
-  case 0x0a: rrc(z80, &reg(d)); return 8; /* rrc d */
-  case 0x0b: rrc(z80, &reg(e)); return 8; /* rrc e */
-  case 0x0c: rrc(z80, &reg(h)); return 8; /* rrc h */
-  case 0x0d: rrc(z80, &reg(l)); return 8; /* rrc l */
-  case 0x0e: op_pointer(rrc(z80, &tmp)); return 15; /* rrc (hl) */
+  case 0x0f: rrc(z80, &reg(a), addr, with_iz); return 8; /* rrc a */
+  case 0x08: rrc(z80, &reg(b), addr, with_iz); return 8; /* rrc b */
+  case 0x09: rrc(z80, &reg(c), addr, with_iz); return 8; /* rrc c */
+  case 0x0a: rrc(z80, &reg(d), addr, with_iz); return 8; /* rrc d */
+  case 0x0b: rrc(z80, &reg(e), addr, with_iz); return 8; /* rrc e */
+  case 0x0c: rrc(z80, &reg(h), addr, with_iz); return 8; /* rrc h */
+  case 0x0d: rrc(z80, &reg(l), addr, with_iz); return 8; /* rrc l */
+  case 0x0e: op_pointer(rrc(z80, &tmp, addr, with_iz)); return 15; /* rrc (hl) */
 
-  case 0x1f: rr(z80, &reg(a)); return 8; /* rr a */
-  case 0x18: rr(z80, &reg(b)); return 8; /* rr b */
-  case 0x19: rr(z80, &reg(c)); return 8; /* rr c */
-  case 0x1a: rr(z80, &reg(d)); return 8; /* rr d */
-  case 0x1b: rr(z80, &reg(e)); return 8; /* rr e */
-  case 0x1c: rr(z80, &reg(h)); return 8; /* rr h */
-  case 0x1d: rr(z80, &reg(l)); return 8; /* rr l */
-  case 0x1e: op_pointer(rr(z80, &tmp)); return 15; /* rr (hl) */
+  case 0x1f: rr(z80, &reg(a), addr, with_iz); return 8; /* rr a */
+  case 0x18: rr(z80, &reg(b), addr, with_iz); return 8; /* rr b */
+  case 0x19: rr(z80, &reg(c), addr, with_iz); return 8; /* rr c */
+  case 0x1a: rr(z80, &reg(d), addr, with_iz); return 8; /* rr d */
+  case 0x1b: rr(z80, &reg(e), addr, with_iz); return 8; /* rr e */
+  case 0x1c: rr(z80, &reg(h), addr, with_iz); return 8; /* rr h */
+  case 0x1d: rr(z80, &reg(l), addr, with_iz); return 8; /* rr l */
+  case 0x1e: op_pointer(rr(z80, &tmp, addr, with_iz)); return 15; /* rr (hl) */
 
-  case 0x27: sla(z80, &reg(a)); return 8; /* sla a */
-  case 0x20: sla(z80, &reg(b)); return 8; /* sla b */
-  case 0x21: sla(z80, &reg(c)); return 8; /* sla c */
-  case 0x22: sla(z80, &reg(d)); return 8; /* sla d */
-  case 0x23: sla(z80, &reg(e)); return 8; /* sla e */
-  case 0x24: sla(z80, &reg(h)); return 8; /* sla h */
-  case 0x25: sla(z80, &reg(l)); return 8; /* sla l */
-  case 0x26: op_pointer(sla(z80, &tmp)); return 15; /* sla (hl) */
+  case 0x27: sla(z80, &reg(a), addr, with_iz); return 8; /* sla a / sla (iz+d), a */
+  case 0x20: sla(z80, &reg(b), addr, with_iz); return 8; /* sla b / sla (iz+d), b */
+  case 0x21: sla(z80, &reg(c), addr, with_iz); return 8; /* sla c / sla (iz+d), c */
+  case 0x22: sla(z80, &reg(d), addr, with_iz); return 8; /* sla d / sla (iz+d), d */
+  case 0x23: sla(z80, &reg(e), addr, with_iz); return 8; /* sla e / sla (iz+d), e */
+  case 0x24: sla(z80, &reg(h), addr, with_iz); return 8; /* sla h / sla (iz+d), h */
+  case 0x25: sla(z80, &reg(l), addr, with_iz); return 8; /* sla l / sla (iz+d), l */
+  case 0x26: op_pointer(sla(z80, &tmp, 0, 0)); return 15; /* sla (hl) / sla (iz+d) */
 
-  case 0x2f: sra(z80, &reg(a)); return 8; /* sra a */
-  case 0x28: sra(z80, &reg(b)); return 8; /* sra b */
-  case 0x29: sra(z80, &reg(c)); return 8; /* sra c */
-  case 0x2a: sra(z80, &reg(d)); return 8; /* sra d */
-  case 0x2b: sra(z80, &reg(e)); return 8; /* sra e */
-  case 0x2c: sra(z80, &reg(h)); return 8; /* sra h */
-  case 0x2d: sra(z80, &reg(l)); return 8; /* sra l */
-  case 0x2e: op_pointer(sra(z80, &tmp)); return 15; /* sra (hl) */
+  case 0x2f: sra(z80, &reg(a), addr, with_iz); return 8; /* sra a */
+  case 0x28: sra(z80, &reg(b), addr, with_iz); return 8; /* sra b */
+  case 0x29: sra(z80, &reg(c), addr, with_iz); return 8; /* sra c */
+  case 0x2a: sra(z80, &reg(d), addr, with_iz); return 8; /* sra d */
+  case 0x2b: sra(z80, &reg(e), addr, with_iz); return 8; /* sra e */
+  case 0x2c: sra(z80, &reg(h), addr, with_iz); return 8; /* sra h */
+  case 0x2d: sra(z80, &reg(l), addr, with_iz); return 8; /* sra l */
+  case 0x2e: op_pointer(sra(z80, &tmp, addr, with_iz)); return 15; /* sra (hl) */
 
-  case 0x3f: srl(z80, &reg(a)); return 8; /* srl a */
-  case 0x38: srl(z80, &reg(b)); return 8; /* srl b */
-  case 0x39: srl(z80, &reg(c)); return 8; /* srl c */
-  case 0x3a: srl(z80, &reg(d)); return 8; /* srl d */
-  case 0x3b: srl(z80, &reg(e)); return 8; /* srl e */
-  case 0x3c: srl(z80, &reg(h)); return 8; /* srl h */
-  case 0x3d: srl(z80, &reg(l)); return 8; /* srl l */
-  case 0x3e: op_pointer(srl(z80, &tmp)); return 15; /* srl (hl) */
+  case 0x37: sll(z80, &reg(a), addr, with_iz); return 8; /* sll a */
+  case 0x30: sll(z80, &reg(b), addr, with_iz); return 8; /* sll b */
+  case 0x31: sll(z80, &reg(c), addr, with_iz); return 8; /* sll c */
+  case 0x32: sll(z80, &reg(d), addr, with_iz); return 8; /* sll d */
+  case 0x33: sll(z80, &reg(e), addr, with_iz); return 8; /* sll e */
+  case 0x34: sll(z80, &reg(h), addr, with_iz); return 8; /* sll h */
+  case 0x35: sll(z80, &reg(l), addr, with_iz); return 8; /* sll l */
+  case 0x36: op_pointer(sll(z80, &tmp, addr, with_iz)); return 15; /* sll (hl) */
 
-  encode_bit_index(0x47, { bit_op(z80, opcode, reg(a)); return 2; }); /* bit n, a */
-  encode_bit_index(0x40, { bit_op(z80, opcode, reg(b)); return 2; }); /* bit n, b */
-  encode_bit_index(0x41, { bit_op(z80, opcode, reg(c)); return 2; }); /* bit n, c */
-  encode_bit_index(0x42, { bit_op(z80, opcode, reg(d)); return 2; }); /* bit n, d */
-  encode_bit_index(0x43, { bit_op(z80, opcode, reg(e)); return 2; }); /* bit n, e */
-  encode_bit_index(0x44, { bit_op(z80, opcode, reg(h)); return 2; }); /* bit n, h */
-  encode_bit_index(0x45, { bit_op(z80, opcode, reg(l)); return 2; }); /* bit n, l */
+  case 0x3f: srl(z80, &reg(a), addr, with_iz); return 8; /* srl a */
+  case 0x38: srl(z80, &reg(b), addr, with_iz); return 8; /* srl b */
+  case 0x39: srl(z80, &reg(c), addr, with_iz); return 8; /* srl c */
+  case 0x3a: srl(z80, &reg(d), addr, with_iz); return 8; /* srl d */
+  case 0x3b: srl(z80, &reg(e), addr, with_iz); return 8; /* srl e */
+  case 0x3c: srl(z80, &reg(h), addr, with_iz); return 8; /* srl h */
+  case 0x3d: srl(z80, &reg(l), addr, with_iz); return 8; /* srl l */
+  case 0x3e: op_pointer(srl(z80, &tmp, addr, with_iz)); return 15; /* srl (hl) */
+
+  encode_bit_index(0x47, { bit_op(z80, opcode, reg(a), addr, with_iz); return 2; }); /* bit n, a */
+  encode_bit_index(0x40, { bit_op(z80, opcode, reg(b), addr, with_iz); return 2; }); /* bit n, b */
+  encode_bit_index(0x41, { bit_op(z80, opcode, reg(c), addr, with_iz); return 2; }); /* bit n, c */
+  encode_bit_index(0x42, { bit_op(z80, opcode, reg(d), addr, with_iz); return 2; }); /* bit n, d */
+  encode_bit_index(0x43, { bit_op(z80, opcode, reg(e), addr, with_iz); return 2; }); /* bit n, e */
+  encode_bit_index(0x44, { bit_op(z80, opcode, reg(h), addr, with_iz); return 2; }); /* bit n, h */
+  encode_bit_index(0x45, { bit_op(z80, opcode, reg(l), addr, with_iz); return 2; }); /* bit n, l */
   encode_bit_index(0x46, { undoc_bit_hl(z80, opcode); return 3; }); /* bit n, (hl) */
 
-  encode_bit_index(0xc7, { set_op(z80, opcode, &reg(a)); return 2; }); /* set n, a */
-  encode_bit_index(0xc0, { set_op(z80, opcode, &reg(b)); return 2; }); /* set n, b */
-  encode_bit_index(0xc1, { set_op(z80, opcode, &reg(c)); return 2; }); /* set n, c */
-  encode_bit_index(0xc2, { set_op(z80, opcode, &reg(d)); return 2; }); /* set n, d */
-  encode_bit_index(0xc3, { set_op(z80, opcode, &reg(e)); return 2; }); /* set n, e */
-  encode_bit_index(0xc4, { set_op(z80, opcode, &reg(h)); return 2; }); /* set n, h */
-  encode_bit_index(0xc5, { set_op(z80, opcode, &reg(l)); return 2; }); /* set n, l */
-  encode_bit_index(0xc6, { op_pointer(set_op(z80, opcode, &tmp)); return 4; }); /* set n, (hl) */
+  encode_bit_index(0xc7, { set_op(z80, opcode, &reg(a), addr, with_iz); return 2; }); /* set n, a */
+  encode_bit_index(0xc0, { set_op(z80, opcode, &reg(b), addr, with_iz); return 2; }); /* set n, b */
+  encode_bit_index(0xc1, { set_op(z80, opcode, &reg(c), addr, with_iz); return 2; }); /* set n, c */
+  encode_bit_index(0xc2, { set_op(z80, opcode, &reg(d), addr, with_iz); return 2; }); /* set n, d */
+  encode_bit_index(0xc3, { set_op(z80, opcode, &reg(e), addr, with_iz); return 2; }); /* set n, e */
+  encode_bit_index(0xc4, { set_op(z80, opcode, &reg(h), addr, with_iz); return 2; }); /* set n, h */
+  encode_bit_index(0xc5, { set_op(z80, opcode, &reg(l), addr, with_iz); return 2; }); /* set n, l */
+  encode_bit_index(0xc6, { op_pointer(set_op(z80, opcode, &tmp, addr, with_iz)); return 4; }); /* set n, (hl) */
 
-  encode_bit_index(0x87, { res_op(z80, opcode, &reg(a)); return 2; }); /* res n, a */
-  encode_bit_index(0x80, { res_op(z80, opcode, &reg(b)); return 2; }); /* res n, b */
-  encode_bit_index(0x81, { res_op(z80, opcode, &reg(c)); return 2; }); /* res n, c */
-  encode_bit_index(0x82, { res_op(z80, opcode, &reg(d)); return 2; }); /* res n, d */
-  encode_bit_index(0x83, { res_op(z80, opcode, &reg(e)); return 2; }); /* res n, e */
-  encode_bit_index(0x84, { res_op(z80, opcode, &reg(h)); return 2; }); /* res n, h */
-  encode_bit_index(0x85, { res_op(z80, opcode, &reg(l)); return 2; }); /* res n, l */
-  encode_bit_index(0x86, { op_pointer(res_op(z80, opcode, &tmp)); return 4; }); /* res n, (hl) */
+  encode_bit_index(0x87, { res_op(z80, opcode, &reg(a), addr, with_iz); return 2; }); /* res n, a */
+  encode_bit_index(0x80, { res_op(z80, opcode, &reg(b), addr, with_iz); return 2; }); /* res n, b */
+  encode_bit_index(0x81, { res_op(z80, opcode, &reg(c), addr, with_iz); return 2; }); /* res n, c */
+  encode_bit_index(0x82, { res_op(z80, opcode, &reg(d), addr, with_iz); return 2; }); /* res n, d */
+  encode_bit_index(0x83, { res_op(z80, opcode, &reg(e), addr, with_iz); return 2; }); /* res n, e */
+  encode_bit_index(0x84, { res_op(z80, opcode, &reg(h), addr, with_iz); return 2; }); /* res n, h */
+  encode_bit_index(0x85, { res_op(z80, opcode, &reg(l), addr, with_iz); return 2; }); /* res n, l */
+  encode_bit_index(0x86, { op_pointer(res_op(z80, opcode, &tmp, addr, with_iz)); return 4; }); /* res n, (hl) */
 
     /* clang-format on */
 
@@ -718,6 +760,7 @@ static zi8 z80e_execute_cb(z80e* z80, zu8 opcode, zu16 addr) {
 }
 
 static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
+  zu8 tmp;
 
 #define in_op_set_flags(dest_reg, fn_call)                                                                             \
   do {                                                                                                                 \
@@ -782,6 +825,9 @@ static zi8 z80e_execute_ed(z80e* z80, zu8 opcode) {
   case 0x58: in_op_set_flags(reg(e), io_read_byte(z80, reg(c), reg(b))); return 12; /* in e, (c) */
   case 0x60: in_op_set_flags(reg(h), io_read_byte(z80, reg(c), reg(b))); return 12; /* in h, (c) */
   case 0x68: in_op_set_flags(reg(l), io_read_byte(z80, reg(c), reg(b))); return 12; /* in l, (c) */
+
+  case 0x70: in_op_set_flags(tmp, io_read_byte(z80, reg(c), reg(b))); return 12; /* in (c) - undoc */
+  case 0x71: io_write_byte(z80, reg(c), reg(b), 0); return 12; /* out (c), 0 - undoc */
 
   case 0xa2: in_id(z80, 0); return 16; /* ini */
   case 0xaa: in_id(z80, 1); return 16; /* ind */
@@ -885,6 +931,67 @@ static zi8 z80e_execute_ddfd(z80e* z80, zu16* rr, zu8 opcode) {
 
   case 0xe9: z80->reg.pc = *rr; return 8; /* jp (iz) */
 
+  case 0x24: inc8(z80, hptr(rr)); return 8; /* inc izh */
+  case 0x25: dec8(z80, hptr(rr)); return 8; /* dec izh */
+  case 0x26: *hptr(rr) = read_byte(z80); return 11; /* ld izh, n */
+
+  case 0x2c: inc8(z80, lptr(rr)); return 8; /* inc izl */
+  case 0x2d: dec8(z80, lptr(rr)); return 8; /* dec izl */
+  case 0x2e: *lptr(rr) = read_byte(z80); return 11; /* ld izl, n */
+
+  case 0x67: *hptr(rr) = reg(a); return 8; /* ld izh, a */
+  case 0x60: *hptr(rr) = reg(b); return 8; /* ld izh, b */
+  case 0x61: *hptr(rr) = reg(c); return 8; /* ld izh, c */
+  case 0x62: *hptr(rr) = reg(d); return 8; /* ld izh, d */
+  case 0x63: *hptr(rr) = reg(e); return 8; /* ld izh, e */
+
+  case 0x6f: *lptr(rr) = reg(a); return 8; /* ld izl, a */
+  case 0x68: *lptr(rr) = reg(b); return 8; /* ld izl, b */
+  case 0x69: *lptr(rr) = reg(c); return 8; /* ld izl, c */
+  case 0x6a: *lptr(rr) = reg(d); return 8; /* ld izl, d */
+  case 0x6b: *lptr(rr) = reg(e); return 8; /* ld izl, e */
+
+  case 0x7c: reg(a) = *hptr(rr); return 8; /* ld a, izh */
+  case 0x44: reg(b) = *hptr(rr); return 8; /* ld b, izh */
+  case 0x4c: reg(c) = *hptr(rr); return 8; /* ld c, izh */
+  case 0x54: reg(d) = *hptr(rr); return 8; /* ld d, izh */
+  case 0x5c: reg(e) = *hptr(rr); return 8; /* ld e, izh */
+
+  case 0x7d: reg(a) = *lptr(rr); return 8; /* ld a, izl */
+  case 0x45: reg(b) = *lptr(rr); return 8; /* ld b, izl */
+  case 0x4d: reg(c) = *lptr(rr); return 8; /* ld c, izl */
+  case 0x55: reg(d) = *lptr(rr); return 8; /* ld d, izl */
+  case 0x5d: reg(e) = *lptr(rr); return 8; /* ld e, izl */
+
+  case 0x64: *hptr(rr) = *hptr(rr); return 8; /* ld izh, izh */
+  case 0x65: *hptr(rr) = *lptr(rr); return 8; /* ld izh, izl */
+  case 0x6c: *lptr(rr) = *hptr(rr); return 8; /* ld izl, izh */
+  case 0x6d: *lptr(rr) = *hptr(rr); return 8; /* ld izl, izl */
+
+  case 0x84: add8(z80, *hptr(rr), 0); return 8; /* add a, izh */
+  case 0x85: add8(z80, *lptr(rr), 0); return 8; /* add a, izl */
+
+  case 0x8c: add8(z80, *hptr(rr), cf(z80)); return 8; /* adc a, izh */
+  case 0x8d: add8(z80, *lptr(rr), cf(z80)); return 8; /* adc a, izl */
+
+  case 0x94: sub8(z80, *hptr(rr), 0); return 8; /* sub izh */
+  case 0x95: sub8(z80, *lptr(rr), 0); return 8; /* sub izl */
+
+  case 0x9c: sub8(z80, *hptr(rr), cf(z80)); return 8; /* sbc izh */
+  case 0x9d: sub8(z80, *lptr(rr), cf(z80)); return 8; /* sbc izl */
+
+  case 0xa4: and8(z80, *hptr(rr)); return 8; /* and izh */
+  case 0xa5: and8(z80, *lptr(rr)); return 8; /* and izl */
+
+  case 0xac: xor8(z80, *hptr(rr)); return 8; /* xor izh */
+  case 0xad: xor8(z80, *lptr(rr)); return 8; /* xor izl */
+
+  case 0xb4: or8(z80, *hptr(rr)); return 8; /* or izh */
+  case 0xb5: or8(z80, *lptr(rr)); return 8; /* or izl */
+
+  case 0xbc: cp8(z80, *hptr(rr)); return 8; /* cp izh */
+  case 0xbd: cp8(z80, *lptr(rr)); return 8; /* cp izl */
+
     /* clang-format on */
 
   case 0x36: /* ld (iz+d), n */
@@ -900,7 +1007,7 @@ static zi8 z80e_execute_ddfd(z80e* z80, zu16* rr, zu8 opcode) {
 
   case 0xcb:
     tmp = *rr + (zi8)read_byte(z80); /* iz+d */
-    return z80e_execute_cb(z80, read_byte(z80), tmp);
+    return z80e_execute_cb(z80, read_byte(z80), tmp, 1);
 
   default:
     z80->reg.pc -= 2;
@@ -1344,49 +1451,63 @@ static void scf(z80e* z80) {
     set_nf(z80, 0);                                                                                                    \
   } while (0)
 
-static void rlc(z80e* z80, zu8* r) {
-  set_cf(z80, bit(*r, 7));
-  *r = (*r << 1) | cf(z80);
+static void rlc(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior) {
+  zu8 src = (undoc_behavior ? read_byte_at(z80, addr) : *r);
+  set_cf(z80, bit(src, 7));
+  *r = (src << 1) | cf(z80);
   rs_set_registers(*r);
 }
 
-static void rl(z80e* z80, zu8* r) {
-  z80->state.tmp = bit(*r, 7);
-  *r = (*r << 1) | cf(z80);
-  set_cf(z80, z80->state.tmp);
-  rs_set_registers(*r);
-}
-
-static void rrc(z80e* z80, zu8* r) {
-  zu8 tmp = bit(*r, 0);
-  *r = (*r >> 1) | (tmp << 7);
+static void rl(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior) {
+  zu8 src = (undoc_behavior ? read_byte_at(z80, addr) : *r);
+  zu8 tmp = bit(src, 7);
+  *r = (src << 1) | cf(z80);
   set_cf(z80, tmp);
   rs_set_registers(*r);
 }
 
-static void rr(z80e* z80, zu8* r) {
-  zu8 tmp = bit(*r, 0);
-  *r = (*r >> 1) | (cf(z80) << 7);
+static void rrc(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior) {
+  zu8 src = (undoc_behavior ? read_byte_at(z80, addr) : *r);
+  zu8 tmp = bit(src, 0);
+  *r = (src >> 1) | (tmp << 7);
   set_cf(z80, tmp);
   rs_set_registers(*r);
 }
 
-static void sla(z80e* z80, zu8* r) {
-  set_cf(z80, bit(*r, 7));
-  *r = *r << 1;
+static void rr(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior) {
+  zu8 src = (undoc_behavior ? read_byte_at(z80, addr) : *r);
+  zu8 tmp = bit(src, 0);
+  *r = (src >> 1) | (cf(z80) << 7);
+  set_cf(z80, tmp);
   rs_set_registers(*r);
 }
 
-static void sra(z80e* z80, zu8* r) {
-  zu8 tmp = *r & 0x80;
-  set_cf(z80, bit(*r, 0));
-  *r = (*r >> 1) | tmp;
+static void sla(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior) {
+  zu8 src = (undoc_behavior ? read_byte_at(z80, addr) : *r);
+  set_cf(z80, bit(src, 7));
+  *r = src << 1;
   rs_set_registers(*r);
 }
 
-static void srl(z80e* z80, zu8* r) {
-  set_cf(z80, bit(*r, 0));
-  *r = *r >> 1;
+static void sra(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior) {
+  zu8 src = (undoc_behavior ? read_byte_at(z80, addr) : *r);
+  zu8 tmp = src & 0x80;
+  set_cf(z80, bit(src, 0));
+  *r = (src >> 1) | tmp;
+  rs_set_registers(*r);
+}
+
+static void sll(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior) {
+  zu8 src = (undoc_behavior ? read_byte_at(z80, addr) : *r);
+  set_cf(z80, bit(src, 7));
+  *r = (src << 1) | 0x01;
+  rs_set_registers(*r);
+}
+
+static void srl(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior) {
+  zu8 src = (undoc_behavior ? read_byte_at(z80, addr) : *r);
+  set_cf(z80, bit(src, 0));
+  *r = src >> 1;
   rs_set_registers(*r);
 }
 
@@ -1409,9 +1530,10 @@ zu8 ret(z80e* z80, zu8 cc) {
   return 10;
 }
 
-static void bit_op(z80e* z80, zu8 opcode, zu8 r) {
+static void bit_op(z80e* z80, zu8 opcode, zu8 r, zu16 addr, zu8 undoc_behavior) {
+  zu8 src = (undoc_behavior ? read_byte_at(z80, addr) : r);
   zu8 bit_idx = (opcode >> 3) & 0x7;
-  zu8 res = r & (1 << bit_idx);
+  zu8 res = src & (1 << bit_idx);
   set_sf(z80, bit(res, 7));
   set_zf(z80, res == 0);
   set_yf(z80, bit(res, 5));
@@ -1426,20 +1548,22 @@ static void undoc_bit_hl(z80e* z80, zu8 opcode) {
   /* YF and XF are copied from some sort of internal register. This register
    * is related to 16-bit additions. - The Undocumented Z80 Documented v0.91 */
   zu8 tmp = read_byte_at(z80, hl(z80));
-  bit_op(z80, opcode, tmp);
+  bit_op(z80, opcode, tmp, 0, 0);
   set_yf(z80, bit(z80->reg.u, 5));
   set_xf(z80, bit(z80->reg.u, 3));
   /* XXX: implement UF */
 }
 
-static void set_op(z80e* z80, zu8 opcode, zu8* r) {
+static void set_op(z80e* z80, zu8 opcode, zu8* r, zu16 addr, zu8 undoc_behavior) {
+  zu8 src = (undoc_behavior ? read_byte_at(z80, addr) : *r);
   zu8 bit_idx = (opcode >> 3) & 0x7;
-  *r |= 1 << bit_idx;
+  *r = src | (1 << bit_idx);
 }
 
-static void res_op(z80e* z80, zu8 opcode, zu8* r) {
+static void res_op(z80e* z80, zu8 opcode, zu8* r, zu16 addr, zu8 undoc_behavior) {
+  zu8 src = (undoc_behavior ? read_byte_at(z80, addr) : *r);
   zu8 bit_idx = (opcode >> 3) & 0x7;
-  *r &= ~(1 << bit_idx);
+  *r = src & ~(1 << bit_idx);
 }
 
 static void in_id(z80e* z80, int mode) {

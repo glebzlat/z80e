@@ -3419,3 +3419,230 @@ tests:
       l: 0xfd
       f: 0x42
       pc: 0x0003
+
+########################  Undocumented instructions ###########################
+
+  - desc: in (c)
+    preset:
+      regs:
+        b: 0x10
+        c: 0x10
+      io:
+        in:
+          0x10: [0x88]
+    source: |
+      in (c)
+      halt
+    regs:
+      b: 0x10
+      c: 0x10
+      f: 0x8c
+      pc: 0x0003
+
+  - desc: out (c), 0
+    skip: Not implemented in z80asm
+    preset:
+      regs:
+        c: 0x10
+      io:
+        out:
+          0x10: [0x00]
+    source: |
+      out (c), 0
+      halt
+    regs:
+      c: 0x10
+      pc: 0x0003
+
+  - desc: sla (ix+d), a
+    preset:
+      regs:
+        ix: 0x1000
+      mem:
+        0x1010: 0x81
+    source: |
+      sla (ix+0x10), a
+      halt
+    regs:
+      a: 0x02
+      ix: 0x1000
+      f: 0x01
+      pc: 0x0005
+
+  - desc: sla (ix+d)
+    preset:
+      regs:
+        ix: 0x1000
+      mem:
+        0x1010: 0x81
+    source: |
+      sla (ix+0x10)
+      halt
+    regs:
+      ix: 0x1000
+      f: 0x01
+      pc: 0x0005
+    mem:
+      0x1010: 0x02
+
+  - desc: sll a
+    preset:
+      regs:
+        a: 0x84
+    source: |
+      sll a
+      halt
+    regs:
+      a: 0x09
+      f: 0x0d
+      pc: 0x0003
+
+  - desc: sll b
+    preset:
+      regs:
+        b: 0x55
+        f: 0x12
+    source: |
+      sll b
+      halt
+    regs:
+      b: 0xab
+      f: 0xa8
+      pc: 0x0003
+
+  - desc: sll (hl)
+    preset:
+      regs:
+        h: 0x10
+        l: 0x10
+      mem:
+        0x1010: 0x80
+    source: |
+      sll (hl)
+      halt
+    regs:
+      h: 0x10
+      l: 0x10
+      f: 0x01
+      pc: 0x0003
+    mem:
+      0x1010: 0x01
+
+  - desc: sll (ix+d), a
+    preset:
+      regs:
+        ix: 0x1000
+      mem:
+        0x1010: 0x84
+    source: |
+      sll (ix+0x10), a
+      halt
+    regs:
+      ix: 0x1000
+      a: 0x09
+      f: 0x0d
+      pc: 0x0005
+
+  - desc: sll (iy+d), a
+    preset:
+      regs:
+        iy: 0x1000
+      mem:
+        0x1010: 0x84
+    source: |
+      sll (iy+0x10), a
+      halt
+    regs:
+      iy: 0x1000
+      a: 0x09
+      f: 0x0d
+      pc: 0x0005
+
+  - desc: sll (ix+d)
+    preset:
+      regs:
+        ix: 0x1000
+      mem:
+        0x1010: 0xc6
+    source: |
+      sll (ix+0x10)
+      halt
+    regs:
+      ix: 0x1000
+      f: 0x8d
+      pc: 0x0005
+    mem:
+      0x1010: 0x8d
+
+  - desc: inc ixh
+    skip: Not implemented in z80asm
+    preset:
+      regs:
+        ix: 0x1000
+    source: |
+      inc ixh
+      halt
+    regs:
+      ix: 0x1001
+      pc: 0x0004
+
+  - desc: ld a, ixh
+    skip: Not implemented in z80asm
+    preset:
+      regs:
+        ix: 0x1020
+    source: |
+      ld a, ixh
+      halt
+    regs:
+      ix: 0x1020
+      a: 0x10
+      pc: 0x0004
+
+  - desc: ld ixh, a
+    preset:
+      regs:
+        a: 0x25
+    source: |
+      ld ixh, a
+      halt
+    regs:
+      ix: 0x2500
+      a: 0x25
+      pc: 0x0003
+
+  - desc: ld ixl, a
+    skip: Not implemented in z80asm
+    preset:
+      regs:
+        a: 0x2c
+    source: |
+      ld ixl, a
+      halt
+    regs:
+      ix: 0x2c00
+      a: 0x2c
+      pc: 0x0003
+
+  - desc: ld izh, r; ld izl, r
+    skip: Not implemented in z80asm
+    preset:
+      regs:
+        a: 0x10
+        b: 0x20
+        c: 0x30
+        d: 0x40
+    source: |
+      ld ixh, a
+      ld ixl, b
+      ld iyh, c
+      ld iyl, d
+      halt
+    regs:
+      a: 0x10
+      b: 0x20
+      c: 0x30
+      d: 0x40
+      ix: 0x1020
+      iy: 0x3040
+      pc: 0x000d
