@@ -22,12 +22,15 @@ project(z80e LANGUAGES C)
 set(SOURCES ${PROJECT_SOURCE_DIR}/source/z80/emulator.c)
 
 if(Z80E_WEBASM)
+    list(APPEND SOURCES ${PROJECT_SOURCE_DIR}/source/z80wasm/emulator.c)
+
     add_executable(${PROJECT_NAME} ${SOURCES})
 
     set_target_properties(${PROJECT_NAME} PROPERTIES
         SUFFIX ".wasm"
-        LINK_FLAGS "-Wl,--no-entry -Wl,--export-all -Wl,--lto-O3"
+        LINK_FLAGS "-Wl,--no-entry -Wl,--export-all -Wl,--lto-O3 -Wl,--allow-undefined"
     )
+
 else()
     add_library(${PROJECT_NAME} STATIC ${SOURCES})
 endif()
