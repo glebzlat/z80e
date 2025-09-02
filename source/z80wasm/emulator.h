@@ -3,7 +3,8 @@
 typedef enum {
   STATUS_OK = 0,
   STATUS_ERROR_NO_REGISTER,
-  STATUS_ERROR_MALLOC
+  STATUS_ERROR_DAA_INVALID_VALUE,
+  STATUS_ERROR_INVALID_OPCODE
 } status_type;
 
 /** Initialize WebAssembly module */
@@ -11,6 +12,9 @@ void init(void);
 
 /** Reset the CPU */
 void reset(void);
+
+/** Execute one instruction and set module status */
+zi8 execute_instruction(void);
 
 /** Allocate a buffer of size n
  *

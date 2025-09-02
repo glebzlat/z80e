@@ -35,6 +35,19 @@ void init(void) {
 
 void reset(void) { z80e_init(&_emu, &_config); }
 
+zi8 execute_instruction(void) {
+  zi8 ret = z80e_instruction(&_emu);
+  switch (ret) {
+    case Z80E_DAA_INVALID_VALUE:
+      _status = STATUS_ERROR_DAA_INVALID_VALUE;
+      break;
+    case Z80E_INVALID_OPCODE:
+      _status = STATUS_ERROR_INVALID_OPCODE;
+      break;
+  }
+  return ret;
+}
+
 void* allocate(int n) {
   unsigned int ptr = _bump_ptr;
   _bump_ptr += n;
