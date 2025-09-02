@@ -14,8 +14,12 @@ extern void memwrite_fn(zu32 a, zu8 b, void *c) IMPORT_MODULE(WASM_NAMESPACE);
 extern zu8 ioread_fn(zu16 a, zu8 b, void* c) IMPORT_MODULE(WASM_NAMESPACE);
 extern void iowrite_fn(zu16 a, zu8 b, void* c) IMPORT_MODULE(WASM_NAMESPACE);
 
+extern unsigned char __heap_base;
+
 static z80e_config _config;
 static z80e _emu;
+static status_type _status;
+static unsigned int _bump_ptr = (unsigned int)&__heap_base;
 
 static zu32 hash(char const *s);
 
@@ -31,10 +35,22 @@ void init(void) {
 
 void reset(void) { z80e_init(&_emu, &_config); }
 
-zu8 get_register8(char r, int alt) {
+void* allocate(int n) {
+  unsigned int ptr = _bump_ptr;
+  _bump_ptr += n;
+  return (void*)ptr;
+}
+
+status_type get_status(void) {
+  status_type tmp = _status;
+  _status = STATUS_OK;
+  return tmp;
+}
+
+zu8 get_register8(char const* r, int alt) {
   z80e_registers *regset = (alt ? &_emu.reg.alt : &_emu.reg.main);
 
-  switch (r) {
+  switch (r[0]) {
   case 'a':
     return regset->a;
   case 'b':
@@ -58,14 +74,15 @@ zu8 get_register8(char r, int alt) {
   case 'u':
     return _emu.reg.u;
   default:
+    _status = STATUS_ERROR_NO_REGISTER;
     return 0;
   }
 }
 
-void set_register8(char r, zu8 v, int alt) {
+void set_register8(char const* r, zu8 v, int alt) {
   z80e_registers *regset = (alt ? &_emu.reg.alt : &_emu.reg.main);
 
-  switch (r) {
+  switch (r[0]) {
   case 'a':
     regset->a = v;
     break;
@@ -99,6 +116,9 @@ void set_register8(char r, zu8 v, int alt) {
   case 'u':
     _emu.reg.u = v;
     break;
+  default:
+    _status = STATUS_ERROR_NO_REGISTER;
+    break;
   }
 }
 
@@ -113,6 +133,7 @@ zu16 get_register16(char const *r) {
   case PC_HASH:
     return _emu.reg.pc;
   default:
+    _status = STATUS_ERROR_NO_REGISTER;
     return 0;
   }
 }
@@ -130,6 +151,9 @@ void set_register16(char const *r, zu16 v) {
     break;
   case PC_HASH:
     _emu.reg.pc = v;
+    break;
+  default:
+    _status = STATUS_ERROR_NO_REGISTER;
     break;
   }
 }
