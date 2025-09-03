@@ -28,7 +28,7 @@ if(Z80E_WEBASM)
 
     set_target_properties(${PROJECT_NAME} PROPERTIES
         SUFFIX ".wasm"
-        LINK_FLAGS "-Wl,--no-entry -Wl,--export-all -Wl,--lto-O3 -Wl,--allow-undefined"
+        LINK_FLAGS "-Wl,--no-entry -Wl,--export-all -Wl,--lto-O3"
     )
 
 else()

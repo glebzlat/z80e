@@ -2,17 +2,17 @@
 
 #define WASM_NAMESPACE "env"
 
-#define IMPORT_MODULE(MODNAME) __attribute__((import_module(MODNAME)))
+#define WASM_IMPORT(NAME) __attribute__((import_module(WASM_NAMESPACE), import_name(#NAME))) NAME
 
 #define IX_HASH 0x7869
 #define IY_HASH 0x7969
 #define SP_HASH 0x7073
 #define PC_HASH 0x6370
 
-extern zu8 memread_fn(zu32 a, void *c) IMPORT_MODULE(WASM_NAMESPACE);
-extern void memwrite_fn(zu32 a, zu8 b, void *c) IMPORT_MODULE(WASM_NAMESPACE);
-extern zu8 ioread_fn(zu16 a, zu8 b, void* c) IMPORT_MODULE(WASM_NAMESPACE);
-extern void iowrite_fn(zu16 a, zu8 b, void* c) IMPORT_MODULE(WASM_NAMESPACE);
+zu8 WASM_IMPORT(memread_fn)(zu32 a, void* c);
+void WASM_IMPORT(memwrite_fn)(zu32 a, zu8 b, void* c);
+zu8 WASM_IMPORT(ioread_fn)(zu16 a, zu8 b, void* c);
+void WASM_IMPORT(iowrite_fn)(zu16 a, zu8 b, void* c);
 
 extern unsigned char __heap_base;
 
