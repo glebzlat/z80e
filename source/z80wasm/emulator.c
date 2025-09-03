@@ -21,14 +21,14 @@ static z80e _emu;
 static status_type _status;
 static unsigned int _bump_ptr = (unsigned int)&__heap_base;
 
-static zu32 hash(char const *s);
+static zu32 hash(char const* s);
 
 void init(void) {
   _config.memread = memread_fn;
   _config.memwrite = memwrite_fn;
   _config.ioread = ioread_fn;
   _config.iowrite = iowrite_fn;
-  _config.ctx = (void *)0;
+  _config.ctx = (void*)0;
 
   z80e_init(&_emu, &_config);
 }
@@ -38,12 +38,12 @@ void reset(void) { z80e_init(&_emu, &_config); }
 zi8 execute_instruction(void) {
   zi8 ret = z80e_instruction(&_emu);
   switch (ret) {
-    case Z80E_DAA_INVALID_VALUE:
-      _status = STATUS_ERROR_DAA_INVALID_VALUE;
-      break;
-    case Z80E_INVALID_OPCODE:
-      _status = STATUS_ERROR_INVALID_OPCODE;
-      break;
+  case Z80E_DAA_INVALID_VALUE:
+    _status = STATUS_ERROR_DAA_INVALID_VALUE;
+    break;
+  case Z80E_INVALID_OPCODE:
+    _status = STATUS_ERROR_INVALID_OPCODE;
+    break;
   }
   return ret;
 }
@@ -61,7 +61,7 @@ status_type get_status(void) {
 }
 
 zu8 get_register8(char const* r, int alt) {
-  z80e_registers *regset = (alt ? &_emu.reg.alt : &_emu.reg.main);
+  z80e_registers* regset = (alt ? &_emu.reg.alt : &_emu.reg.main);
 
   switch (r[0]) {
   case 'a':
@@ -93,7 +93,7 @@ zu8 get_register8(char const* r, int alt) {
 }
 
 void set_register8(char const* r, zu8 v, int alt) {
-  z80e_registers *regset = (alt ? &_emu.reg.alt : &_emu.reg.main);
+  z80e_registers* regset = (alt ? &_emu.reg.alt : &_emu.reg.main);
 
   switch (r[0]) {
   case 'a':
@@ -135,7 +135,7 @@ void set_register8(char const* r, zu8 v, int alt) {
   }
 }
 
-zu16 get_register16(char const *r) {
+zu16 get_register16(char const* r) {
   switch (hash(r)) {
   case IX_HASH:
     return _emu.reg.ix;
@@ -151,7 +151,7 @@ zu16 get_register16(char const *r) {
   }
 }
 
-void set_register16(char const *r, zu16 v) {
+void set_register16(char const* r, zu16 v) {
   switch (hash(r)) {
   case IX_HASH:
     _emu.reg.ix = v;
@@ -171,7 +171,7 @@ void set_register16(char const *r, zu16 v) {
   }
 }
 
-static zu32 hash(char const *s) {
+static zu32 hash(char const* s) {
   /* Pretty simple function for strings with length <= 4 */
   zu32 v = 0;
   for (int i = 0; i < 4 && s[i] != '\0'; ++i) {
