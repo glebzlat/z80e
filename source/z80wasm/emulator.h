@@ -61,3 +61,10 @@ zu16 get_register16(char const* r);
  * @param v value
  */
 void set_register16(char const* r, zu16 v);
+
+
+/** Get whether the CPU is halted
+ *
+ * @returns Halted
+ */
+int is_halted(void);

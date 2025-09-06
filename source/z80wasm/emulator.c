@@ -171,6 +171,10 @@ void set_register16(char const* r, zu16 v) {
   }
 }
 
+int is_halted(void) {
+  return _emu.halt;
+}
+
 static zu32 hash(char const* s) {
   /* Pretty simple function for strings with length <= 4 */
   zu32 v = 0;
