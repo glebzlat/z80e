@@ -1515,7 +1515,7 @@ static void srl(z80e* z80, zu8* r, zu16 addr, zu8 undoc_behavior) {
 
 zu8 call(z80e* z80, zu8 cc, zu16 nn) {
   if (cc) {
-    push(z80, z80->reg.pc);
+    push(z80, z80->reg.pc + 3);
     z80->reg.pc = nn;
     return 17;
   }
